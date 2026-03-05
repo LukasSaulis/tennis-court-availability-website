@@ -1,6 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
+
+const controlStyle: React.CSSProperties = {
+  height: 45,
+  padding: "0 12px",
+  borderRadius: 10,
+  border: "1px solid rgba(255,255,255,0.18)",
+  background: "rgba(22, 33, 53, 1)",
+  color: "inherit",
+  outline: "none",
+  fontFamily: "system-ui, Arial",
+  fontSize: 15,
+  fontWeight: 500,
+};
+
 type Day = { date: string; label: string };
 
 type GridResponse = {
@@ -28,13 +42,15 @@ function formatUpdatedLocal(ts: string) {
 
 function cellStyle(count: number, isHovered: boolean) {
   // Keep the "previous green" vibe: any availability > 0 uses same dark green.
-  const bgZero = "rgba(92, 55, 97, 0.35)"; // purple-ish for none
-  const bgAvail = "rgba(0, 200, 120, 0.18)"; // dark green for any available
+  const bgZero = "rgba(47, 35, 51, 1)"; // purple-ish for none
+  const bgAvail = "rgba(16, 48, 56, 1)"; // dark green for any available
 
   return {
-    background: isHovered ? "rgba(255, 255, 255, 0.06)" : count > 0 ? bgAvail : bgZero,
-    border: isHovered ? "1px solid rgba(255,255,255,0.22)" : "1px solid rgba(255,255,255,0.06)",
-    transition: "background 120ms ease, border-color 120ms ease",
+    // background: isHovered ? "rgba(255, 255, 255, 0.06)" : count > 0 ? bgAvail : bgZero,
+    // border: isHovered ? "1px solid rgba(255,255,255,0.22)" : "1px solid rgba(255,255,255,0.06)",
+    // transition: "background 120ms ease, border-color 120ms ease",
+	background: isHovered ? "rgba(14, 59, 59, 1)" : count > 0 ? bgAvail : bgZero,
+	transition: "background 120ms ease",
   } as const;
 }
 
@@ -45,11 +61,11 @@ type VenueOption = {
 };
 
 const VENUES: VenueOption[] = [
-  { id: "islington_indoor", label: "Islington Tennis Center - Indoor", group: "Indoor Courts" },
-  { id: "lee_valley_indoor", label: "Lee Valley Tennis Centre - Indoor", group: "Indoor Courts" },
+  { id: "islington_tennis_centre", label: "Islington Tennis Centre", group: "Indoor Courts" },
+  { id: "lee_valley_tennis_centre", label: "Lee Valley Tennis Centre", group: "Indoor Courts" },
 
   { id: "st_johns_park", label: "St Johns Park (Tower Hamlets)", group: "Outdoor Courts" },
-  { id: "bethnal_green_gardens", label: "Bethnal Green Gardens", group: "Outdoor Courts" },
+  { id: "bethnal_green_gardens", label: "Bethnal Green Gardens (Tower Hamlets)", group: "Outdoor Courts" },
   { id: "king_edward_memorial_park", label: "King Edward Memorial Park (Tower Hamlets)", group: "Outdoor Courts" },
   { id: "victoria_park", label: "Victoria Park (Tower Hamlets)", group: "Outdoor Courts" },
   { id: "poplar_rec", label: "Poplar Rec Ground (Tower Hamlets)", group: "Outdoor Courts" },
@@ -59,11 +75,11 @@ const VENUES: VenueOption[] = [
 
 const REFRESH_OPTIONS: Array<{ label: string; ms: number }> = [
   { label: "Off", ms: 0 },
-  { label: "30 seconds", ms: 30_000 },
-  { label: "1 minute", ms: 60_000 },
-  { label: "2 minutes", ms: 120_000 },
-  { label: "5 minutes", ms: 300_000 },
-  { label: "10 minutes", ms: 600_000 },
+  { label: "30s", ms: 30_000 },
+  { label: "1m", ms: 60_000 },
+  { label: "2m", ms: 120_000 },
+  { label: "5m", ms: 300_000 },
+  { label: "10m", ms: 600_000 },
 ];
 
 export default function App() {
@@ -73,15 +89,13 @@ export default function App() {
 
   // Venue selector (checkbox list in a dropdown panel)
   const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>([
-    "bethnal_green_gardens",
-    "king_edward_memorial_park",
     "st_johns_park",
   ]);
   const [venueDropdownOpen, setVenueDropdownOpen] = useState(false);
   const [venueSearch, setVenueSearch] = useState("");
 
   // Auto-refresh control
-  const [refreshMs, setRefreshMs] = useState<number>(60_000);
+  const [refreshMs, setRefreshMs] = useState<number>(300_000);
   const refreshTimerRef = useRef<number | null>(null);
 
   const fetchGrid = async () => {
@@ -167,41 +181,25 @@ export default function App() {
     <div
       style={{
         padding: 12,
-        maxWidth: 1600,
+        maxWidth: 2000,
         margin: 0, // remove "bunched in the middle"
         fontFamily: "system-ui, Arial",
         color: "rgba(255,255,255,0.92)",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-        <h1 style={{ margin: 0, fontSize: 34, letterSpacing: 0.2 }}>Tennis court availability</h1>
-
-        <button
-          onClick={fetchGrid}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.18)",
-            background: "rgba(255,255,255,0.06)",
-            color: "inherit",
-            cursor: "pointer",
-          }}
-        >
-          Refresh
-        </button>
+        <h1 style={{ margin: 0, fontSize: 34, letterSpacing: 0.2 }}>Tennis Court Availability</h1>
       </div>
 
       {/* Controls row */}
-      <div style={{ marginTop: 12, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ marginTop: 20, display: "flex", gap: 40, flexWrap: "wrap", alignItems: "center" }}>
+		<b>Venues:</b>
         {/* Venue dropdown */}
-        <div ref={dropdownRef} style={{ position: "relative", minWidth: 520, flex: "1 1 520px" }}>
+        <div ref={dropdownRef} style={{ position: "relative", minWidth: 500, maxWidth: 500, flex: "1 1 500px", marginLeft: -30 }}>
           <div
             onClick={() => setVenueDropdownOpen((v) => !v)}
             style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.18)",
-              borderRadius: 10,
-              padding: "10px 12px",
+              ...controlStyle,
               cursor: "pointer",
               userSelect: "none",
               display: "flex",
@@ -230,33 +228,13 @@ export default function App() {
               }}
             >
               <div style={{ padding: 10, borderBottom: "1px solid rgba(255,255,255,0.10)" }}>
-                <button
-                  onClick={() => setSelectedVenueIds([])}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "rgba(255,255,255,0.85)",
-                    cursor: "pointer",
-                    padding: 0,
-                    fontWeight: 600,
-                  }}
-                >
-                  Clear All
-                </button>
-
                 <input
                   value={venueSearch}
                   onChange={(e) => setVenueSearch(e.target.value)}
                   placeholder="Search venues..."
                   style={{
-                    marginTop: 10,
-                    width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid rgba(255,255,255,0.16)",
-                    background: "rgba(255,255,255,0.06)",
-                    color: "inherit",
-                    outline: "none",
+                    ...controlStyle,
+                    width: 400,
                   }}
                 />
               </div>
@@ -317,13 +295,8 @@ export default function App() {
             value={refreshMs}
             onChange={(e) => setRefreshMs(Number(e.target.value))}
             style={{
-              minWidth: 160,
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.18)",
-              background: "rgba(255,255,255,0.06)",
-              color: "inherit",
-              outline: "none",
+			  ...controlStyle,
+              minWidth: 100,
               cursor: "pointer",
             }}
           >
@@ -336,9 +309,24 @@ export default function App() {
         </div>
 
         {/* Updated */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, opacity: 0.9 }}>
-          <b>Updated:</b> {updated}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <b>Last Refresh:</b> {updated}
         </div>
+
+		{/* Refresh */}
+		<button
+          onClick={fetchGrid}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(22, 33, 53, 1)",
+            color: "inherit",
+            cursor: "pointer",
+          }}
+        >
+          Refresh
+        </button>
       </div>
 
       {error && (
@@ -347,16 +335,16 @@ export default function App() {
         </div>
       )}
 
-      {!data && !error && <div style={{ marginTop: 14 }}>Loading…</div>}
+      {!data && !error && <div style={{ marginTop: 20 }}>Loading…</div>}
 
       {data && (
         <div
           style={{
-            marginTop: 14,
+            marginTop: 20,
             borderRadius: 14,
             overflow: "hidden",
             border: "1px solid rgba(255,255,255,0.10)",
-            background: "rgba(10, 18, 35, 0.75)",
+            background: "rgba(15, 23, 43, 0.9)",
             width: "fit-content", // prevents “bunched” look by letting table size itself
             maxWidth: "100%",
           }}
@@ -368,14 +356,15 @@ export default function App() {
             }}
           >
             <thead>
-              <tr style={{ background: "rgba(5, 12, 28, 0.9)" }}>
+              <tr style={{ background: "rgba(15, 23, 43, 0.9)" }}>
                 <th
                   style={{
                     padding: "12px 14px",
                     textAlign: "center",
-                    fontWeight: 700,
+					fontSize: 17,
+                    fontWeight: 500,
                     borderBottom: "1px solid rgba(255,255,255,0.10)",
-                    width: 140,
+                    width: 170,
                   }}
                 >
                   Time
@@ -387,10 +376,11 @@ export default function App() {
                     style={{
                       padding: "12px 14px",
                       textAlign: "center",
-                      fontWeight: 700,
+					  fontSize: 17,
+                      fontWeight: 500,
                       borderBottom: "1px solid rgba(255,255,255,0.10)",
                       whiteSpace: "nowrap",
-                      width: 170, // increased width
+                      width: 170,
                     }}
                   >
                     {d.label}
@@ -406,11 +396,12 @@ export default function App() {
                     style={{
                       padding: "14px",
                       borderBottom: "1px solid rgba(255,255,255,0.06)",
-                      background: "rgba(5, 12, 28, 0.65)",
+                      background: "rgba(15, 23, 43, 0.9)",
                       fontVariantNumeric: "tabular-nums",
-                      fontWeight: 700,
+					  fontSize: 17,
+                      fontWeight: 500,
                       textAlign: "center",
-                      width: 140,
+                      width: 170,
                     }}
                   >
                     {t}
@@ -433,17 +424,19 @@ export default function App() {
                           textAlign: "center",
                           verticalAlign: "middle",
                           cursor: "default",
+						  fontSize: 17,
+						  fontWeight: 500,
                           width: 170,
                         }}
                       >
                         {count === 0 ? (
-                          <div style={{ opacity: 0.75, fontWeight: 700 }}>–</div>
+                          <div style={{ opacity: 0.75, fontWeight: 500 }}>–</div>
                         ) : (
                           <>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: "rgba(120, 255, 220, 0.95)" }}>
+                            <div style={{ fontSize: 19, fontWeight: 500, color: "rgba(0, 187, 99, 1)" }}>
                               {count}
                             </div>
-                            <div style={{ fontSize: 12, opacity: 0.9 }}>{plural}</div>
+                            <div style={{ fontSize: 13, opacity: 0.9 }}>{plural}</div>
                           </>
                         )}
                       </td>
@@ -457,7 +450,7 @@ export default function App() {
       )}
 
       {/* Selected venues aligned with left edge of the table */}
-      <div style={{ marginTop: 10, opacity: 0.9 }}>
+      <div style={{ marginTop: 10, textAlign: "left" }}>
         <b>Selected venues:</b>{" "}
         {selectedVenues.length ? selectedVenues.map((v) => v.label).join(", ") : "None"}
       </div>
