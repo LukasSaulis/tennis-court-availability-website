@@ -192,7 +192,7 @@ export default function App() {
       </div>
 
       {/* Controls row */}
-      <div style={{ marginTop: 20, display: "flex", gap: 40, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ marginTop: 20, marginLeft: 10, display: "flex", gap: 40, flexWrap: "wrap", alignItems: "center" }}>
 		<b>Venues:</b>
         {/* Venue dropdown */}
         <div ref={dropdownRef} style={{ position: "relative", minWidth: 500, maxWidth: 500, flex: "1 1 500px", marginLeft: -30 }}>
@@ -206,6 +206,7 @@ export default function App() {
               justifyContent: "space-between",
               alignItems: "center",
               gap: 10,
+			  height: 42,
             }}
           >
             <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{venueSummary}</div>
@@ -234,7 +235,7 @@ export default function App() {
                   placeholder="Search venues..."
                   style={{
                     ...controlStyle,
-                    width: 400,
+                    width: 450,
                   }}
                 />
               </div>
@@ -317,12 +318,9 @@ export default function App() {
 		<button
           onClick={fetchGrid}
           style={{
-            padding: "8px 12px",
-            borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.18)",
-            background: "rgba(22, 33, 53, 1)",
-            color: "inherit",
+			...controlStyle,
             cursor: "pointer",
+			marginLeft: -20,
           }}
         >
           Refresh
@@ -436,7 +434,7 @@ export default function App() {
                             <div style={{ fontSize: 19, fontWeight: 500, color: "rgba(0, 187, 99, 1)" }}>
                               {count}
                             </div>
-                            <div style={{ fontSize: 13, opacity: 0.9 }}>{plural}</div>
+                            <div style={{ fontSize: 14, fontWeight: 350, opacity: 0.9 }}>{plural}</div>
                           </>
                         )}
                       </td>
@@ -450,7 +448,7 @@ export default function App() {
       )}
 
       {/* Selected venues aligned with left edge of the table */}
-      <div style={{ marginTop: 10, textAlign: "left" }}>
+      <div style={{ marginTop: 15, marginLeft: 10, textAlign: "left" }}>
         <b>Selected venues:</b>{" "}
         {selectedVenues.length ? selectedVenues.map((v) => v.label).join(", ") : "None"}
       </div>
