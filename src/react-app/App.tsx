@@ -1,18 +1,69 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
+const uiStyle = {
+  pagePadding: 0,
+  pageMaxWidth: 2000,
+  pageMargin: 0,
 
-const controlStyle: React.CSSProperties = {
-  height: 45,
-  padding: "0 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(255,255,255,0.18)",
-  background: "rgba(22, 33, 53, 1)",
-  color: "inherit",
-  outline: "none",
-  fontFamily: "system-ui, Arial",
-  fontSize: 17,
+  controlsMarginTop: 20,
+  controlsMarginLeft: 10,
+  controlsGap: 40,
+  controlsFontSize: 14,
+
+  textFontFamily: "system-ui, Arial",
+  textColor: "rgba(255,255,255,0.92)",
+  textFontSize: 14,
+  textFontWeight: 500,
+
+  labelFontSize: 14,
+  labelFontWeight: 700,
+
+  selectedVenuesMarginTop: 15,
+  selectedVenuesMarginLeft: 10,
+
+  loadingMarginTop: 20,
+  errorMarginTop: 12,
+  errorPadding: 12,
+  errorBorderRadius: 12,
+
+  dropdownTop: 46,
+  dropdownPadding: 10,
+  dropdownMaxHeight: 380,
+  dropdownItemPadding: "8px 8px",
+  dropdownGroupMarginBottom: 12,
+  searchWidth: 450,
+
+  controlHeight: 40,
+  controlPadding: "0 12px",
+  controlBorderRadius: 10,
+  controlBorder: "1px solid rgba(255,255,255,0.18)",
+  controlBackground: "rgba(22, 33, 53, 1)",
+  controlOutline: "none",
+};
+
+const tableStyle = {
+  wrapperMarginTop: 20,
+  wrapperBorderRadius: 14,
+  wrapperWidth: "fit-content" as const,
+  wrapperMaxWidth: "100%",
+  wrapperBackground: "rgba(15, 23, 43, 0.9)",
+  wrapperBorder: "1px solid rgba(255,255,255,0.10)",
+
+  columnWidth: 130,
+  headerPadding: "9px 9px",
+  cellPadding: "9px 9px",
+  timeCellPadding: "9px 9px",
+
+  fontSize: 14,
   fontWeight: 500,
+  numberFontSize: 14,
+  numberFontWeight: 500,
+
+  headerBackground: "rgba(15, 23, 43, 0.9)",
+  timeColumnBackground: "rgba(15, 23, 43, 0.9)",
+  borderBottom: "1px solid rgba(255,255,255,0.06)",
+  headerBorderBottom: "1px solid rgba(255,255,255,0.10)",
 };
 
 type Day = { date: string; label: string };
@@ -22,7 +73,7 @@ type GridResponse = {
   generated_at: string;
   days: Day[];
   times: string[];
-  counts: number[][]; // counts[timeIndex][dayIndex]
+  counts: number[][];
   maxCourts: number;
 };
 
@@ -41,28 +92,30 @@ function formatUpdatedLocal(ts: string) {
 }
 
 function cellStyle(count: number, isHovered: boolean) {
-  // Keep the "previous green" vibe: any availability > 0 uses same dark green.
-  const bgZero = "rgba(47, 35, 51, 1)"; // purple-ish for none
-  const bgAvail = "rgba(16, 48, 56, 1)"; // dark green for any available
+  const bgZero = "rgba(47, 35, 51, 1)";
+  const bgAvail = "rgba(16, 48, 56, 1)";
 
   return {
-    // background: isHovered ? "rgba(255, 255, 255, 0.06)" : count > 0 ? bgAvail : bgZero,
-    // border: isHovered ? "1px solid rgba(255,255,255,0.22)" : "1px solid rgba(255,255,255,0.06)",
-    // transition: "background 120ms ease, border-color 120ms ease",
-	background: isHovered ? "rgba(14, 59, 59, 1)" : count > 0 ? bgAvail : bgZero,
-	transition: "background 120ms ease",
+    background: isHovered ? "rgba(14, 59, 59, 1)" : count > 0 ? bgAvail : bgZero,
+    transition: "background 120ms ease",
   } as const;
 }
 
 type VenueOption = {
   id: string;
   label: string;
-  group: "Groups" | "With Floodlights (Close)" | "With Floodlights (Far)" | "Without Floodlights (Close)" | "Without Floodlights (Far)" | "Indoor Courts";
+  group:
+    | "Groups"
+    | "With Floodlights (Close)"
+    | "With Floodlights (Far)"
+    | "Without Floodlights (Close)"
+    | "Without Floodlights (Far)"
+    | "Indoor Courts";
 };
 
 const VENUES: VenueOption[] = [
   { id: "all_courts", label: "All Courts", group: "Groups" },
-  { id: "st_johns_park", label: "St Johns Park Only", group: "Groups" },
+  { id: "st_johns_park_group", label: "St Johns Park Only", group: "Groups" },
   { id: "with_floodlights_close", label: "With Floodlights (Close)", group: "Groups" },
   { id: "with_floodlights_far", label: "With Floodlights (Far)", group: "Groups" },
   { id: "without_floodlights_close", label: "Without Floodlights (Close)", group: "Groups" },
@@ -107,25 +160,17 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [hover, setHover] = useState<HoverCell>(null);
 
-  // Venue selector (checkbox list in a dropdown panel)
-  const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>([
-    "st_johns_park",
-  ]);
+  const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>(["st_johns_park"]);
   const [venueDropdownOpen, setVenueDropdownOpen] = useState(false);
   const [venueSearch, setVenueSearch] = useState("");
 
-  // Auto-refresh control
   const [refreshMs, setRefreshMs] = useState<number>(300_000);
   const refreshTimerRef = useRef<number | null>(null);
 
   const fetchGrid = async () => {
     try {
       setError(null);
-
-      // For now backend is still returning a single-venue mock.
-      // Later you will pass selected venues to backend (e.g. ?venues=a,b,c).
       const res = await fetch("/api/availability?venue=st_johns_park&days=7", { cache: "no-store" });
-
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = (await res.json()) as GridResponse;
       setData(json);
@@ -134,13 +179,11 @@ export default function App() {
     }
   };
 
-  // Initial fetch + auto-refresh handling
   useEffect(() => {
     fetchGrid();
   }, []);
 
   useEffect(() => {
-    // clear existing timer
     if (refreshTimerRef.current) {
       window.clearInterval(refreshTimerRef.current);
       refreshTimerRef.current = null;
@@ -152,7 +195,6 @@ export default function App() {
       if (refreshTimerRef.current) window.clearInterval(refreshTimerRef.current);
       refreshTimerRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshMs]);
 
   const updated = useMemo(() => {
@@ -187,7 +229,6 @@ export default function App() {
     return { groups, with_floodlights_close, with_floodlights_far, without_floodlights_close, without_floodlights_far, indoor };
   }, [filteredVenues]);
 
-  // Close dropdown when clicking outside
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -204,30 +245,49 @@ export default function App() {
   return (
     <div
       style={{
-        padding: 12,
-        maxWidth: 2000,
-        margin: 0, // remove "bunched in the middle"
-        fontFamily: "system-ui, Arial",
-        color: "rgba(255,255,255,0.92)",
+        padding: uiStyle.pagePadding,
+        maxWidth: uiStyle.pageMaxWidth,
+        margin: uiStyle.pageMargin,
+        fontFamily: uiStyle.textFontFamily,
+        color: uiStyle.textColor,
       }}
     >
+      <div
+        style={{
+          marginTop: uiStyle.controlsMarginTop,
+          marginLeft: uiStyle.controlsMarginLeft,
+          display: "flex",
+          gap: uiStyle.controlsGap,
+          flexWrap: "wrap",
+          alignItems: "center",
+          fontSize: uiStyle.controlsFontSize,
+        }}
+      >
+        <b>Venues:</b>
 
-      {/* Controls row */}
-      <div style={{ marginTop: 20, marginLeft: 10, display: "flex", gap: 40, flexWrap: "wrap", alignItems: "center", fontSize: 17 }}>
-		<b>Venues:</b>
-        {/* Venue dropdown */}
-        <div ref={dropdownRef} style={{ position: "relative", minWidth: 500, maxWidth: 500, flex: "1 1 500px", marginLeft: -30 }}>
+        <div
+          ref={dropdownRef}
+          style={{ position: "relative", minWidth: 500, maxWidth: 500, flex: "1 1 500px", marginLeft: -30 }}
+        >
           <div
             onClick={() => setVenueDropdownOpen((v) => !v)}
             style={{
-              ...controlStyle,
+              height: uiStyle.controlHeight,
+              padding: uiStyle.controlPadding,
+              borderRadius: uiStyle.controlBorderRadius,
+              border: uiStyle.controlBorder,
+              background: uiStyle.controlBackground,
+              color: "inherit",
+              outline: uiStyle.controlOutline,
+              fontFamily: uiStyle.textFontFamily,
+              fontSize: uiStyle.textFontSize,
+              fontWeight: uiStyle.textFontWeight,
               cursor: "pointer",
               userSelect: "none",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               gap: 10,
-			  height: 42,
             }}
           >
             <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{venueSummary}</div>
@@ -238,7 +298,7 @@ export default function App() {
             <div
               style={{
                 position: "absolute",
-                top: 46,
+                top: uiStyle.dropdownTop,
                 left: 0,
                 right: 0,
                 zIndex: 20,
@@ -249,32 +309,74 @@ export default function App() {
                 boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
               }}
             >
-              <div style={{ padding: 10, borderBottom: "1px solid rgba(255,255,255,0.10)" }}>
+              <div
+                style={{
+                  padding: uiStyle.dropdownPadding,
+                  borderBottom: "1px solid rgba(255,255,255,0.10)",
+                }}
+              >
                 <input
                   value={venueSearch}
                   onChange={(e) => setVenueSearch(e.target.value)}
                   placeholder="Search venues..."
                   style={{
-                    ...controlStyle,
-                    width: 450,
+                    height: uiStyle.controlHeight,
+                    padding: uiStyle.controlPadding,
+                    borderRadius: uiStyle.controlBorderRadius,
+                    border: uiStyle.controlBorder,
+                    background: uiStyle.controlBackground,
+                    color: "inherit",
+                    outline: uiStyle.controlOutline,
+                    fontFamily: uiStyle.textFontFamily,
+                    fontSize: uiStyle.textFontSize,
+                    fontWeight: uiStyle.textFontWeight,
+                    width: uiStyle.searchWidth,
                   }}
                 />
               </div>
 
-              <div style={{ maxHeight: 380, overflowY: "auto", padding: 10 }}>
-                {(["Groups", "With Floodlights (Close)", "With Floodlights (Far)", "Without Floodlights (Close)", "Without Floodlights (Far)", "Indoor Courts"] as const).map((groupName) => {
-                  const list = 
-                    groupName === "Groups" ? grouped.groups :
-                    groupName === "With Floodlights (Close)" ? grouped.with_floodlights_close :
-                    groupName === "With Floodlights (Far)" ? grouped.with_floodlights_far :
-                    groupName === "Without Floodlights (Close)" ? grouped.without_floodlights_close :
-                    groupName === "Without Floodlights (Far)" ? grouped.without_floodlights_far :
-                    grouped.indoor;
+              <div
+                style={{
+                  maxHeight: uiStyle.dropdownMaxHeight,
+                  overflowY: "auto",
+                  padding: uiStyle.dropdownPadding,
+                }}
+              >
+                {(
+                  [
+                    "Groups",
+                    "With Floodlights (Close)",
+                    "With Floodlights (Far)",
+                    "Without Floodlights (Close)",
+                    "Without Floodlights (Far)",
+                    "Indoor Courts",
+                  ] as const
+                ).map((groupName) => {
+                  const list =
+                    groupName === "Groups"
+                      ? grouped.groups
+                      : groupName === "With Floodlights (Close)"
+                      ? grouped.with_floodlights_close
+                      : groupName === "With Floodlights (Far)"
+                      ? grouped.with_floodlights_far
+                      : groupName === "Without Floodlights (Close)"
+                      ? grouped.without_floodlights_close
+                      : groupName === "Without Floodlights (Far)"
+                      ? grouped.without_floodlights_far
+                      : grouped.indoor;
+
                   if (list.length === 0) return null;
 
                   return (
-                    <div key={groupName} style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 14, opacity: 0.75, fontWeight: 700, margin: "6px 4px" }}>
+                    <div key={groupName} style={{ marginBottom: uiStyle.dropdownGroupMarginBottom }}>
+                      <div
+                        style={{
+                          fontSize: uiStyle.labelFontSize,
+                          opacity: 0.75,
+                          fontWeight: uiStyle.labelFontWeight,
+                          margin: "6px 4px",
+                        }}
+                      >
                         {groupName}
                       </div>
 
@@ -287,7 +389,7 @@ export default function App() {
                               display: "flex",
                               alignItems: "center",
                               gap: 10,
-                              padding: "8px 8px",
+                              padding: uiStyle.dropdownItemPadding,
                               borderRadius: 10,
                               cursor: "pointer",
                               background: checked ? "rgba(0, 160, 140, 0.18)" : "transparent",
@@ -316,14 +418,22 @@ export default function App() {
           )}
         </div>
 
-        {/* Auto-refresh dropdown */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <b>Auto-refresh:</b>
           <select
             value={refreshMs}
             onChange={(e) => setRefreshMs(Number(e.target.value))}
             style={{
-			  ...controlStyle,
+              height: uiStyle.controlHeight,
+              padding: uiStyle.controlPadding,
+              borderRadius: uiStyle.controlBorderRadius,
+              border: uiStyle.controlBorder,
+              background: uiStyle.controlBackground,
+              color: "inherit",
+              outline: uiStyle.controlOutline,
+              fontFamily: uiStyle.textFontFamily,
+              fontSize: uiStyle.textFontSize,
+              fontWeight: uiStyle.textFontWeight,
               minWidth: 100,
               cursor: "pointer",
             }}
@@ -336,18 +446,25 @@ export default function App() {
           </select>
         </div>
 
-        {/* Updated */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <b>Last Refresh:</b> {updated}
         </div>
 
-		{/* Refresh */}
-		<button
+        <button
           onClick={fetchGrid}
           style={{
-			...controlStyle,
+            height: uiStyle.controlHeight,
+            padding: uiStyle.controlPadding,
+            borderRadius: uiStyle.controlBorderRadius,
+            border: uiStyle.controlBorder,
+            background: uiStyle.controlBackground,
+            color: "inherit",
+            outline: uiStyle.controlOutline,
+            fontFamily: uiStyle.textFontFamily,
+            fontSize: uiStyle.textFontSize,
+            fontWeight: uiStyle.textFontWeight,
             cursor: "pointer",
-			marginLeft: -20,
+            marginLeft: -20,
           }}
         >
           Refresh
@@ -355,23 +472,30 @@ export default function App() {
       </div>
 
       {error && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid rgba(255,0,0,0.4)" }}>
+        <div
+          style={{
+            marginTop: uiStyle.errorMarginTop,
+            padding: uiStyle.errorPadding,
+            borderRadius: uiStyle.errorBorderRadius,
+            border: "1px solid rgba(255,0,0,0.4)",
+          }}
+        >
           <b style={{ color: "crimson" }}>Error:</b> {error}
         </div>
       )}
 
-      {!data && !error && <div style={{ marginTop: 20 }}>Loading…</div>}
+      {!data && !error && <div style={{ marginTop: uiStyle.loadingMarginTop }}>Loading…</div>}
 
       {data && (
         <div
           style={{
-            marginTop: 20,
-            borderRadius: 14,
+            marginTop: tableStyle.wrapperMarginTop,
+            borderRadius: tableStyle.wrapperBorderRadius,
             overflow: "hidden",
-            border: "1px solid rgba(255,255,255,0.10)",
-            background: "rgba(15, 23, 43, 0.9)",
-            width: "fit-content", // prevents “bunched” look by letting table size itself
-            maxWidth: "100%",
+            border: tableStyle.wrapperBorder,
+            background: tableStyle.wrapperBackground,
+            width: tableStyle.wrapperWidth,
+            maxWidth: tableStyle.wrapperMaxWidth,
           }}
         >
           <table
@@ -381,15 +505,15 @@ export default function App() {
             }}
           >
             <thead>
-              <tr style={{ background: "rgba(15, 23, 43, 0.9)" }}>
+              <tr style={{ background: tableStyle.headerBackground }}>
                 <th
                   style={{
-                    padding: "12px 14px",
+                    padding: tableStyle.headerPadding,
                     textAlign: "center",
-					fontSize: 17,
-                    fontWeight: 500,
-                    borderBottom: "1px solid rgba(255,255,255,0.10)",
-                    width: 170,
+                    fontSize: tableStyle.fontSize,
+                    fontWeight: tableStyle.fontWeight,
+                    borderBottom: tableStyle.headerBorderBottom,
+                    width: tableStyle.columnWidth,
                   }}
                 >
                   Time
@@ -399,13 +523,13 @@ export default function App() {
                   <th
                     key={d.date}
                     style={{
-                      padding: "12px 14px",
+                      padding: tableStyle.headerPadding,
                       textAlign: "center",
-					  fontSize: 17,
-                      fontWeight: 500,
-                      borderBottom: "1px solid rgba(255,255,255,0.10)",
+                      fontSize: tableStyle.fontSize,
+                      fontWeight: tableStyle.fontWeight,
+                      borderBottom: tableStyle.headerBorderBottom,
                       whiteSpace: "nowrap",
-                      width: 170,
+                      width: tableStyle.columnWidth,
                     }}
                   >
                     {d.label}
@@ -419,14 +543,14 @@ export default function App() {
                 <tr key={t}>
                   <td
                     style={{
-                      padding: "14px",
-                      borderBottom: "1px solid rgba(255,255,255,0.06)",
-                      background: "rgba(15, 23, 43, 0.9)",
+                      padding: tableStyle.timeCellPadding,
+                      borderBottom: tableStyle.borderBottom,
+                      background: tableStyle.timeColumnBackground,
                       fontVariantNumeric: "tabular-nums",
-					  fontSize: 17,
-                      fontWeight: 500,
+                      fontSize: tableStyle.fontSize,
+                      fontWeight: tableStyle.fontWeight,
                       textAlign: "center",
-                      width: 170,
+                      width: tableStyle.columnWidth,
                     }}
                   >
                     {t}
@@ -443,24 +567,28 @@ export default function App() {
                         onMouseLeave={() => setHover(null)}
                         style={{
                           ...cellStyle(count, isHovered),
-                          padding: "12px 10px",
-                          borderBottom: "1px solid rgba(255,255,255,0.06)",
+                          padding: tableStyle.cellPadding,
+                          borderBottom: tableStyle.borderBottom,
                           textAlign: "center",
                           verticalAlign: "middle",
                           cursor: "default",
-						  fontSize: 17,
-						  fontWeight: 500,
-                          width: 170,
+                          fontSize: tableStyle.fontSize,
+                          fontWeight: tableStyle.fontWeight,
+                          width: tableStyle.columnWidth,
                         }}
                       >
                         {count === 0 ? (
-                          <div style={{ opacity: 0.75, fontWeight: 500 }}>–</div>
+                          <div style={{ opacity: 0.75, fontWeight: tableStyle.numberFontWeight }}>–</div>
                         ) : (
-                          <>
-                            <div style={{ fontSize: 17, fontWeight: 500, color: "rgba(0, 187, 99, 1)" }}>
-                              {count}
-                            </div>
-                          </>
+                          <div
+                            style={{
+                              fontSize: tableStyle.numberFontSize,
+                              fontWeight: tableStyle.numberFontWeight,
+                              color: "rgba(0, 187, 99, 1)",
+                            }}
+                          >
+                            {count}
+                          </div>
                         )}
                       </td>
                     );
@@ -472,10 +600,15 @@ export default function App() {
         </div>
       )}
 
-      {/* Selected venues aligned with left edge of the table */}
-      <div style={{ marginTop: 15, marginLeft: 10, textAlign: "left", fontSize: 17 }}>
-        <b>Selected venues:</b>{" "}
-        {selectedVenues.length ? selectedVenues.map((v) => v.label).join(", ") : "None"}
+      <div
+        style={{
+          marginTop: uiStyle.selectedVenuesMarginTop,
+          marginLeft: uiStyle.selectedVenuesMarginLeft,
+          textAlign: "left",
+          fontSize: uiStyle.textFontSize,
+        }}
+      >
+        <b>Selected venues:</b> {selectedVenues.length ? selectedVenues.map((v) => v.label).join(", ") : "None"}
       </div>
     </div>
   );
