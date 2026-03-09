@@ -11,7 +11,7 @@ const controlStyle: React.CSSProperties = {
   color: "inherit",
   outline: "none",
   fontFamily: "system-ui, Arial",
-  fontSize: 15,
+  fontSize: 17,
   fontWeight: 500,
 };
 
@@ -57,29 +57,49 @@ function cellStyle(count: number, isHovered: boolean) {
 type VenueOption = {
   id: string;
   label: string;
-  group: "Indoor Courts" | "Outdoor Courts";
+  group: "Groups" | "With Floodlights (Close)" | "With Floodlights (Far)" | "Without Floodlights (Close)" | "Without Floodlights (Far)" | "Indoor Courts";
 };
 
 const VENUES: VenueOption[] = [
-  { id: "islington_tennis_centre", label: "Islington Tennis Centre", group: "Indoor Courts" },
-  { id: "lee_valley_tennis_centre", label: "Lee Valley Tennis Centre", group: "Indoor Courts" },
+  { id: "all_courts", label: "All Courts", group: "Groups" },
+  { id: "st_johns_park", label: "St Johns Park Only", group: "Groups" },
+  { id: "with_floodlights_close", label: "With Floodlights (Close)", group: "Groups" },
+  { id: "with_floodlights_far", label: "With Floodlights (Far)", group: "Groups" },
+  { id: "without_floodlights_close", label: "Without Floodlights (Close)", group: "Groups" },
+  { id: "without_floodlights_far", label: "Without Floodlights (Far)", group: "Groups" },
 
-  { id: "st_johns_park", label: "St Johns Park (Tower Hamlets)", group: "Outdoor Courts" },
-  { id: "bethnal_green_gardens", label: "Bethnal Green Gardens (Tower Hamlets)", group: "Outdoor Courts" },
-  { id: "king_edward_memorial_park", label: "King Edward Memorial Park (Tower Hamlets)", group: "Outdoor Courts" },
-  { id: "victoria_park", label: "Victoria Park (Tower Hamlets)", group: "Outdoor Courts" },
-  { id: "poplar_rec", label: "Poplar Rec Ground (Tower Hamlets)", group: "Outdoor Courts" },
-  { id: "ropemakers_field", label: "Ropemakers Field (Tower Hamlets)", group: "Outdoor Courts" },
-  { id: "mile_end_park", label: "Mile End Park (Tower Hamlets)", group: "Outdoor Courts" },
+  { id: "bethnal_green_gardens", label: "Bethnal Green Gardens — 25m", group: "With Floodlights (Close)" },
+  { id: "ladywell_fields", label: "Ladywell Fields — 40m", group: "With Floodlights (Close)" },
+  { id: "st_johns_park", label: "St Johns Park — 10m", group: "With Floodlights (Close)" },
+  { id: "stratford_park", label: "Stratford Park — 40m", group: "With Floodlights (Close)" },
+
+  { id: "hermit_road_rec", label: "Hermit Rd Rec — 40m", group: "Without Floodlights (Close)" },
+  { id: "king_edward_memorial_park", label: "King Edward Memorial Park — 25m", group: "Without Floodlights (Close)" },
+  { id: "poplar_rec", label: "Poplar Recreation Ground — 20m", group: "Without Floodlights (Close)" },
+  { id: "ropemakers_field", label: "Ropemakers Field — 20m", group: "Without Floodlights (Close)" },
+  { id: "royal_victoria_gardens", label: "Royal Victoria Gardens — 40m", group: "Without Floodlights (Close)" },
+  { id: "southwark_park", label: "Southwark Park — 30m", group: "Without Floodlights (Close)" },
+
+  { id: "canning_town_rec_ground", label: "Canning Town Rec Ground — 40m", group: "With Floodlights (Far)" },
+  { id: "little_ilford_park", label: "Little Ilford Park — 1h", group: "With Floodlights (Far)" },
+  { id: "lyle_park", label: "Lyle Park — 30m", group: "With Floodlights (Far)" },
+
+  { id: "central_park", label: "Central Park — 1h", group: "Without Floodlights (Far)" },
+  { id: "gooseley_playing_fields", label: "Gooseley Playing Fields — 1h", group: "Without Floodlights (Far)" },
+  { id: "plashet_park", label: "Plashet Park — 50m", group: "Without Floodlights (Far)" },
+
+  { id: "ealing_lawn_tennis_club", label: "Ealing Lawn Tennis Club — 1h — £10/h", group: "Indoor Courts" },
+  { id: "islington_tennis_centre_outdoors", label: "Islington Tennis Centre — 1h — £39/h", group: "Indoor Courts" },
+  { id: "lee_valley_hockey_tennis_centre", label: "Lee Valley Hockey and Tennis Centre — 1h — £33/h", group: "Indoor Courts" },
+  { id: "new_river_sport_fitness", label: "New River Sport & Fitness — 1h20 — £26/h", group: "Indoor Courts" },
+  { id: "westway", label: "Westway — 55m — £37/h", group: "Indoor Courts" },
 ];
 
 const REFRESH_OPTIONS: Array<{ label: string; ms: number }> = [
   { label: "Off", ms: 0 },
-  { label: "30s", ms: 30_000 },
-  { label: "1m", ms: 60_000 },
-  { label: "2m", ms: 120_000 },
   { label: "5m", ms: 300_000 },
-  { label: "10m", ms: 600_000 },
+  { label: "15m", ms: 900_000 },
+  { label: "30m", ms: 1_800_000 },
 ];
 
 export default function App() {
@@ -158,9 +178,13 @@ export default function App() {
   }, [venueSearch]);
 
   const grouped = useMemo(() => {
+    const groups = filteredVenues.filter((v) => v.group === "Groups");
+    const with_floodlights_close = filteredVenues.filter((v) => v.group === "With Floodlights (Close)");
+    const with_floodlights_far = filteredVenues.filter((v) => v.group === "With Floodlights (Far)");
+    const without_floodlights_close = filteredVenues.filter((v) => v.group === "Without Floodlights (Close)");
+    const without_floodlights_far = filteredVenues.filter((v) => v.group === "Without Floodlights (Far)");
     const indoor = filteredVenues.filter((v) => v.group === "Indoor Courts");
-    const outdoor = filteredVenues.filter((v) => v.group === "Outdoor Courts");
-    return { indoor, outdoor };
+    return { groups, with_floodlights_close, with_floodlights_far, without_floodlights_close, without_floodlights_far, indoor };
   }, [filteredVenues]);
 
   // Close dropdown when clicking outside
@@ -187,12 +211,9 @@ export default function App() {
         color: "rgba(255,255,255,0.92)",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-        <h1 style={{ margin: 0, fontSize: 34, letterSpacing: 0.2 }}>Tennis Court Availability</h1>
-      </div>
 
       {/* Controls row */}
-      <div style={{ marginTop: 20, marginLeft: 10, display: "flex", gap: 40, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ marginTop: 20, marginLeft: 10, display: "flex", gap: 40, flexWrap: "wrap", alignItems: "center", fontSize: 17 }}>
 		<b>Venues:</b>
         {/* Venue dropdown */}
         <div ref={dropdownRef} style={{ position: "relative", minWidth: 500, maxWidth: 500, flex: "1 1 500px", marginLeft: -30 }}>
@@ -241,13 +262,19 @@ export default function App() {
               </div>
 
               <div style={{ maxHeight: 380, overflowY: "auto", padding: 10 }}>
-                {(["Indoor Courts", "Outdoor Courts"] as const).map((groupName) => {
-                  const list = groupName === "Indoor Courts" ? grouped.indoor : grouped.outdoor;
+                {(["Groups", "With Floodlights (Close)", "With Floodlights (Far)", "Without Floodlights (Close)", "Without Floodlights (Far)", "Indoor Courts"] as const).map((groupName) => {
+                  const list = 
+                    groupName === "Groups" ? grouped.groups :
+                    groupName === "With Floodlights (Close)" ? grouped.with_floodlights_close :
+                    groupName === "With Floodlights (Far)" ? grouped.with_floodlights_far :
+                    groupName === "Without Floodlights (Close)" ? grouped.without_floodlights_close :
+                    groupName === "Without Floodlights (Far)" ? grouped.without_floodlights_far :
+                    grouped.indoor;
                   if (list.length === 0) return null;
 
                   return (
                     <div key={groupName} style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 12, opacity: 0.75, fontWeight: 700, margin: "6px 4px" }}>
+                      <div style={{ fontSize: 14, opacity: 0.75, fontWeight: 700, margin: "6px 4px" }}>
                         {groupName}
                       </div>
 
@@ -407,7 +434,6 @@ export default function App() {
 
                   {data.days.map((d, di) => {
                     const count = data.counts?.[ti]?.[di] ?? 0;
-                    const plural = count === 1 ? "court" : "courts";
                     const isHovered = hover?.ti === ti && hover?.di === di;
 
                     return (
@@ -431,10 +457,9 @@ export default function App() {
                           <div style={{ opacity: 0.75, fontWeight: 500 }}>–</div>
                         ) : (
                           <>
-                            <div style={{ fontSize: 19, fontWeight: 500, color: "rgba(0, 187, 99, 1)" }}>
+                            <div style={{ fontSize: 17, fontWeight: 500, color: "rgba(0, 187, 99, 1)" }}>
                               {count}
                             </div>
-                            <div style={{ fontSize: 14, fontWeight: 350, opacity: 0.9 }}>{plural}</div>
                           </>
                         )}
                       </td>
@@ -448,7 +473,7 @@ export default function App() {
       )}
 
       {/* Selected venues aligned with left edge of the table */}
-      <div style={{ marginTop: 15, marginLeft: 10, textAlign: "left" }}>
+      <div style={{ marginTop: 15, marginLeft: 10, textAlign: "left", fontSize: 17 }}>
         <b>Selected venues:</b>{" "}
         {selectedVenues.length ? selectedVenues.map((v) => v.label).join(", ") : "None"}
       </div>
