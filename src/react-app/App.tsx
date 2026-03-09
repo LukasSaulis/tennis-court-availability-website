@@ -559,6 +559,7 @@ export default function App() {
                   {data.days.map((d, di) => {
                     const count = data.counts?.[ti]?.[di] ?? 0;
                     const isHovered = hover?.ti === ti && hover?.di === di;
+                    const displayCount = count > 10 ? "10+" : count;
 
                     return (
                       <td
@@ -587,7 +588,7 @@ export default function App() {
                               color: "rgba(0, 187, 99, 1)",
                             }}
                           >
-                            {count}
+                            {displayCount}
                           </div>
                         )}
                       </td>
