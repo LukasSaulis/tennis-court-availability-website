@@ -148,7 +148,7 @@ function MultiSelectDropdown({
   selectedValues,
   setSelectedValues,
   searchable = false,
-  minWidth = 140,
+  width = 140,
   showClear = false,
 }: {
   title: string;
@@ -156,7 +156,7 @@ function MultiSelectDropdown({
   selectedValues: string[];
   setSelectedValues: (values: string[]) => void;
   searchable?: boolean;
-  minWidth?: number;
+  width?: number;
   showClear?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -186,22 +186,20 @@ function MultiSelectDropdown({
   const summary = useMemo(() => {
     if (options.length > 0 && selectedValues.length === options.length) return "All";
     if (selectedValues.length === 0) return "None";
-    const selectedLabels = options
-      .filter((o) => selectedValues.includes(o.value))
-      .map((o) => o.label);
+    const selectedLabels = options.filter((o) => selectedValues.includes(o.value)).map((o) => o.label);
 
     if (selectedLabels.length <= 2) return selectedLabels.join(", ");
     return `${selectedLabels[0]}, ${selectedLabels[1]} + ${selectedLabels.length - 2} more`;
   }, [options, selectedValues]);
 
   return (
-    <div ref={ref} style={{ position: "relative", minWidth }}>
+    <div ref={ref} style={{ position: "relative" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <b>{title}:</b>
         <div
           onClick={() => setOpen((v) => !v)}
           style={{
-            minWidth,
+            width,
             height: uiStyle.controlHeight,
             padding: uiStyle.controlPadding,
             borderRadius: uiStyle.controlBorderRadius,
@@ -215,13 +213,24 @@ function MultiSelectDropdown({
             cursor: "pointer",
             userSelect: "none",
             display: "flex",
-            justifyContent: "space-between",
+            justifyContent: "flex-start",
             alignItems: "center",
             gap: 10,
+            boxSizing: "border-box",
           }}
         >
-          <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{summary}</div>
-          <div style={{ opacity: 0.8 }}>▾</div>
+          <div
+            style={{
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              flex: 1,
+              textAlign: "left",
+            }}
+          >
+            {summary}
+          </div>
+          <div style={{ opacity: 0.8, flexShrink: 0, marginLeft: "auto" }}>▾</div>
         </div>
       </div>
 
@@ -232,12 +241,13 @@ function MultiSelectDropdown({
             top: uiStyle.dropdownTop,
             left: 0,
             zIndex: 30,
-            minWidth: Math.max(minWidth, 260),
+            width: Math.max(width, 260),
             background: "rgba(15, 25, 45, 0.98)",
             border: "1px solid rgba(255,255,255,0.18)",
             borderRadius: 12,
             overflow: "hidden",
             boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
+            boxSizing: "border-box",
           }}
         >
           <div
@@ -257,6 +267,7 @@ function MultiSelectDropdown({
                 placeholder={`Search ${title.toLowerCase()}...`}
                 style={{
                   flex: 1,
+                  minWidth: 0,
                   height: uiStyle.controlHeight,
                   padding: uiStyle.controlPadding,
                   borderRadius: uiStyle.controlBorderRadius,
@@ -267,6 +278,7 @@ function MultiSelectDropdown({
                   fontFamily: uiStyle.textFontFamily,
                   fontSize: uiStyle.textFontSize,
                   fontWeight: uiStyle.textFontWeight,
+                  boxSizing: "border-box",
                 }}
               />
             ) : (
@@ -465,7 +477,6 @@ export default function App() {
   const [selectedDistances, setSelectedDistances] = useState<string[]>(distanceOptions.map((o) => o.value));
   const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>(difficultyOptions.map((o) => o.value));
   const [selectedPrices, setSelectedPrices] = useState<string[]>(priceOptions.map((o) => o.value));
-
   const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>(COURTS.map((c) => c.id));
 
   const [refreshMs, setRefreshMs] = useState<number>(300_000);
@@ -512,20 +523,20 @@ export default function App() {
       const floodlightValue: FloodlightOption = court.floodlights ? "Yes" : "No";
 
       const distanceMatches =
+        selectedDistances.length === 0 ||
         selectedDistances.length === distanceOptions.length ||
         selectedDistances.some((bucket) => matchesDistance(bucket as DistanceBucket, court.distanceMins));
 
       const priceMatches =
+        selectedPrices.length === 0 ||
         selectedPrices.length === priceOptions.length ||
         selectedPrices.some((bucket) => matchesPrice(bucket as PriceBucket, court.travelPrice));
 
-      return (
-        selectedIndoors.includes(indoorValue) &&
-        selectedFloodlights.includes(floodlightValue) &&
-        distanceMatches &&
-        selectedDifficulties.includes(court.difficulty) &&
-        priceMatches
-      );
+      const indoorMatches = selectedIndoors.length === 0 || selectedIndoors.includes(indoorValue);
+      const floodlightMatches = selectedFloodlights.length === 0 || selectedFloodlights.includes(floodlightValue);
+      const difficultyMatches = selectedDifficulties.length === 0 || selectedDifficulties.includes(court.difficulty);
+
+      return indoorMatches && floodlightMatches && distanceMatches && difficultyMatches && priceMatches;
     }).sort((a, b) => a.label.localeCompare(b.label));
   }, [selectedIndoors, selectedFloodlights, selectedDistances, selectedDifficulties, selectedPrices]);
 
@@ -537,11 +548,28 @@ export default function App() {
   }, [courtsMatchingNonVenueFilters]);
 
   useEffect(() => {
-    const allowedIds = new Set(venueOptions.map((o) => o.value));
-    setSelectedVenueIds((prev) => prev.filter((id) => allowedIds.has(id)));
+    const allIds = venueOptions.map((o) => o.value);
+    const allIdsSet = new Set(allIds);
+
+    setSelectedVenueIds((prev) => {
+      const prevFiltered = prev.filter((id) => allIdsSet.has(id));
+
+      const hadAllPreviously =
+        prev.length === 0 ||
+        prev.every((id) => allIdsSet.has(id)) ||
+        prevFiltered.length === prev.length;
+      const currentlyAllSelected = prevFiltered.length === allIds.length;
+
+      if (currentlyAllSelected || prev.length === 0 || hadAllPreviously) {
+        return allIds;
+      }
+
+      return prevFiltered;
+    });
   }, [venueOptions]);
 
   const filteredCourts = useMemo(() => {
+    if (selectedVenueIds.length === 0) return [];
     return courtsMatchingNonVenueFilters.filter((court) => selectedVenueIds.includes(court.id));
   }, [courtsMatchingNonVenueFilters, selectedVenueIds]);
 
@@ -578,7 +606,7 @@ export default function App() {
             options={indoorOptions}
             selectedValues={selectedIndoors}
             setSelectedValues={setSelectedIndoors}
-            minWidth={100}
+            width={130}
           />
 
           <MultiSelectDropdown
@@ -586,7 +614,7 @@ export default function App() {
             options={floodlightOptions}
             selectedValues={selectedFloodlights}
             setSelectedValues={setSelectedFloodlights}
-            minWidth={100}
+            width={130}
           />
 
           <MultiSelectDropdown
@@ -594,7 +622,7 @@ export default function App() {
             options={distanceOptions}
             selectedValues={selectedDistances}
             setSelectedValues={setSelectedDistances}
-            minWidth={100}
+            width={130}
           />
 
           <MultiSelectDropdown
@@ -602,7 +630,7 @@ export default function App() {
             options={difficultyOptions}
             selectedValues={selectedDifficulties}
             setSelectedValues={setSelectedDifficulties}
-            minWidth={100}
+            width={130}
           />
 
           <MultiSelectDropdown
@@ -610,7 +638,7 @@ export default function App() {
             options={priceOptions}
             selectedValues={selectedPrices}
             setSelectedValues={setSelectedPrices}
-            minWidth={100}
+            width={130}
           />
         </div>
 
@@ -629,7 +657,7 @@ export default function App() {
             setSelectedValues={setSelectedVenueIds}
             searchable
             showClear
-            minWidth={300}
+            width={400}
           />
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -638,6 +666,7 @@ export default function App() {
               value={refreshMs}
               onChange={(e) => setRefreshMs(Number(e.target.value))}
               style={{
+                width: 100,
                 height: uiStyle.controlHeight,
                 padding: uiStyle.controlPadding,
                 borderRadius: uiStyle.controlBorderRadius,
@@ -648,8 +677,8 @@ export default function App() {
                 fontFamily: uiStyle.textFontFamily,
                 fontSize: uiStyle.textFontSize,
                 fontWeight: uiStyle.textFontWeight,
-                minWidth: 100,
                 cursor: "pointer",
+                boxSizing: "border-box",
               }}
             >
               {REFRESH_OPTIONS.map((o) => (
@@ -659,7 +688,7 @@ export default function App() {
               ))}
             </select>
           </div>
-          
+
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <b>Last Refresh:</b> {updated}
           </div>
@@ -667,6 +696,7 @@ export default function App() {
           <button
             onClick={fetchGrid}
             style={{
+              width: 100,
               height: uiStyle.controlHeight,
               padding: uiStyle.controlPadding,
               borderRadius: uiStyle.controlBorderRadius,
@@ -678,6 +708,7 @@ export default function App() {
               fontSize: uiStyle.textFontSize,
               fontWeight: uiStyle.textFontWeight,
               cursor: "pointer",
+              boxSizing: "border-box",
             }}
           >
             Refresh
