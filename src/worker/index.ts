@@ -1,97 +1,290 @@
-import { Hono } from "hono";
+export interface Env {}
 
-const app = new Hono();
+type Day = { date: string; label: string };
 
-app.get("/api/health", (c) => c.json({ ok: true }));
+type GridResponse = {
+  venue: string;
+  generated_at: string;
+  days: Day[];
+  times: string[];
+  counts: number[][];
+  maxCourts: number;
+};
 
-/**
- * Returns a week-grid of "available courts count" for a single venue.
- *
- * Shape:
- * {
- *   venue: "st_johns_park",
- *   generated_at: "...",
- *   days: [{ date: "2026-02-05", label: "Thu 05" }, ...],
- *   times: ["07:00","08:00",...,"22:00"],
- *   counts: number[][] // counts[timeIndex][dayIndex]
- * }
- *
- * For now this is MOCK data so the UI works.
- * Later your scraper will compute real counts and return the same shape.
- */
-app.get("/api/availability", (c) => {
-  const venue = c.req.query("venue") ?? "st_johns_park";
+type Slot = {
+  time: string;   // HH:MM
+  court: string;  // "Court 1"
+  status: "booked" | "available";
+  price: number | null;
+};
 
-  // start date: either ?start=YYYY-MM-DD or default = today (UTC)
-  const startParam = c.req.query("start");
-  const start = startParam ? new Date(`${startParam}T00:00:00Z`) : new Date();
-  const startUTC = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+const VENUE_ID = "st_johns_park";
+const VENUE_PATH = "st-johns-park";
+const MAX_COURTS = 2;
 
-  const daysCount = Number(c.req.query("days") ?? "7");
-  const days = Array.from({ length: Math.min(Math.max(daysCount, 1), 14) }, (_, i) => {
-    const d = new Date(startUTC);
-    d.setUTCDate(d.getUTCDate() + i);
-    const yyyy = d.getUTCFullYear();
-    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const dd = String(d.getUTCDate()).padStart(2, "0");
-    const date = `${yyyy}-${mm}-${dd}`;
-    const label = d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit" }).replace(",", "");
-    return { date, label };
+export default {
+  async fetch(request: Request, _env: Env, _ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/api/health") {
+      return json({
+        ok: true,
+        venue: VENUE_ID,
+        now: new Date().toISOString(),
+      });
+    }
+
+    if (url.pathname === "/api/availability") {
+      try {
+        const venue = (url.searchParams.get("venue") || VENUE_ID).toLowerCase();
+        const days = clampInt(url.searchParams.get("days"), 1, 14, 7);
+
+        if (venue !== VENUE_ID) {
+          return json(
+            {
+              error: `Only ${VENUE_ID} is implemented right now.`,
+            },
+            400
+          );
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const dayList: Day[] = [];
+        const slotMaps: Map<string, Slot[]>[] = [];
+
+        for (let i = 0; i < days; i++) {
+          const d = addDays(today, i);
+          const iso = formatDateISO(d);
+
+          const scraped = await scrapeStJohnsForDate(iso);
+
+          dayList.push({
+            date: iso,
+            label: formatDayLabel(d),
+          });
+
+          slotMaps.push(groupSlotsByTime(scraped.slots));
+        }
+
+        const allTimes = Array.from(
+          new Set(slotMaps.flatMap((m) => Array.from(m.keys())))
+        ).sort(compareHHMM);
+
+        const counts = allTimes.map((time) =>
+          slotMaps.map((slotMap) => {
+            const slots = slotMap.get(time) || [];
+            return slots.filter((s) => s.status === "available").length;
+          })
+        );
+
+        const payload: GridResponse = {
+          venue: VENUE_ID,
+          generated_at: new Date().toISOString(),
+          days: dayList,
+          times: allTimes,
+          counts,
+          maxCourts: MAX_COURTS,
+        };
+
+        return json(payload, 200, {
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        });
+      } catch (error) {
+        return json(
+          {
+            error: error instanceof Error ? error.message : String(error),
+          },
+          500,
+          {
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+          }
+        );
+      }
+    }
+
+    return new Response("Not found", { status: 404 });
+  },
+};
+
+async function scrapeStJohnsForDate(dateISO: string): Promise<{
+  venue: string;
+  date: string;
+  slots: Slot[];
+}> {
+  const url = buildVenueUrl(dateISO);
+
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+    cf: {
+      cacheEverything: false,
+      cacheTtl: 0,
+      cacheKey: undefined,
+    },
   });
 
-  // Choose the time range you want shown in the grid:
-  const times = [
-    "07:00",
-    "08:00",
-    "09:00",
-    "10:00",
-    "11:00",
-    "12:00",
-    "13:00",
-    "14:00",
-    "15:00",
-    "16:00",
-    "17:00",
-    "18:00",
-    "19:00",
-    "20:00",
-    "21:00",
-    "22:00",
-  ];
+  if (!res.ok) {
+    throw new Error(`Upstream fetch failed for ${dateISO}: HTTP ${res.status}`);
+  }
 
-  // St Johns Park has 2 courts => counts are 0..2
-  // MOCK logic: creates a realistic-looking pattern, deterministic by date/time.
-  const maxCourts = 2;
-  const counts: number[][] = times.map((t) => {
-    const [hh, mm] = t.split(":").map(Number);
-    const minutes = hh * 60 + mm;
+  const html = await res.text();
+  const text = htmlToSearchableText(html);
+  const slots = parseSlotsFromText(text);
 
-    return days.map((day) => {
-      // deterministic pseudo-random seed from date+time
-      const seed = Number(day.date.replaceAll("-", "")) + minutes;
-      const x = Math.sin(seed * 0.01) * 10000;
-      const r = x - Math.floor(x); // 0..1
+  return {
+    venue: VENUE_ID,
+    date: dateISO,
+    slots,
+  };
+}
 
-      // bias: more availability early afternoon in this mock
-      const bias =
-        minutes >= 13 * 60 && minutes <= 17 * 60 ? 0.15 : minutes >= 7 * 60 && minutes <= 12 * 60 ? 0.05 : -0.1;
+function buildVenueUrl(dateISO: string): string {
+  const todayISO = formatDateISO(new Date());
 
-      const v = r + bias;
+  if (dateISO === todayISO) {
+    return `https://tennistowerhamlets.com/book/courts/${VENUE_PATH}#book`;
+  }
 
-      if (v < 0.45) return 0;
-      if (v < 0.78) return 1;
-      return maxCourts;
-    });
+  return `https://tennistowerhamlets.com/book/courts/${VENUE_PATH}/${dateISO}#book`;
+}
+
+function htmlToSearchableText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<\/(div|p|li|tr|section|article|h1|h2|h3|h4|h5|h6)>/gi, " ")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&pound;/gi, "£")
+    .replace(/&#163;/gi, "£")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseSlotsFromText(text: string): Slot[] {
+  const slots: Slot[] = [];
+
+  const rowRegex =
+    /(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s+Court\s+1\s+(booked|£\s*\d+(?:\.\d{1,2})?)\s+Court\s+2\s+(booked|£\s*\d+(?:\.\d{1,2})?)/gi;
+
+  let match: RegExpExecArray | null;
+
+  while ((match = rowRegex.exec(text)) !== null) {
+    const rawTime = match[1];
+    const court1State = match[2];
+    const court2State = match[3];
+    const time = to24Hour(rawTime);
+
+    slots.push(parseCourtState(time, "Court 1", court1State));
+    slots.push(parseCourtState(time, "Court 2", court2State));
+  }
+
+  return slots.sort((a, b) => {
+    const t = compareHHMM(a.time, b.time);
+    if (t !== 0) return t;
+    return a.court.localeCompare(b.court);
   });
+}
 
-  return c.json({
-    venue,
-    generated_at: new Date().toISOString(),
-    days,
-    times,
-    counts,
-    maxCourts,
+function parseCourtState(time: string, court: string, state: string): Slot {
+  const s = state.trim().toLowerCase();
+
+  if (s.includes("booked")) {
+    return {
+      time,
+      court,
+      status: "booked",
+      price: null,
+    };
+  }
+
+  const priceMatch = state.match(/£\s*(\d+(?:\.\d{1,2})?)/i);
+
+  return {
+    time,
+    court,
+    status: "available",
+    price: priceMatch ? Number(priceMatch[1]) : null,
+  };
+}
+
+function groupSlotsByTime(slots: Slot[]): Map<string, Slot[]> {
+  const map = new Map<string, Slot[]>();
+
+  for (const slot of slots) {
+    if (!map.has(slot.time)) {
+      map.set(slot.time, []);
+    }
+    map.get(slot.time)!.push(slot);
+  }
+
+  return map;
+}
+
+function to24Hour(input: string): string {
+  const s = input.trim().toLowerCase();
+  const m = s.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
+
+  if (!m) {
+    throw new Error(`Unrecognized time format: ${input}`);
+  }
+
+  let hour = Number(m[1]);
+  const minute = Number(m[2] || "0");
+  const ampm = m[3];
+
+  if (ampm === "am") {
+    if (hour === 12) hour = 0;
+  } else {
+    if (hour !== 12) hour += 12;
+  }
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function formatDateISO(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDayLabel(d: Date): string {
+  const weekday = d.toLocaleDateString("en-GB", { weekday: "short" });
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${weekday} ${dd}`;
+}
+
+function addDays(d: Date, days: number): Date {
+  const x = new Date(d);
+  x.setDate(x.getDate() + days);
+  return x;
+}
+
+function compareHHMM(a: string, b: string): number {
+  return a.localeCompare(b);
+}
+
+function clampInt(raw: string | null, min: number, max: number, fallback: number): number {
+  const n = raw ? Number(raw) : fallback;
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(n)));
+}
+
+function json(body: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body, null, 2), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      ...extraHeaders,
+    },
   });
-});
-
-export default app;
+}

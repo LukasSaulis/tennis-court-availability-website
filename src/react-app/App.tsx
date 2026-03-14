@@ -6,6 +6,7 @@ const REFRESH_OPTIONS = [
   { label: "5m", ms: 300000 },
   { label: "15m", ms: 900000 },
   { label: "30m", ms: 1800000 },
+  { label: "1h", ms: 3600000 },
 ];
 
 const uiStyle = {
@@ -485,7 +486,7 @@ export default function App() {
   const fetchGrid = async () => {
     try {
       setError(null);
-      const res = await fetch("/api/availability?venue=st_johns_park&days=7", { cache: "no-store" });
+      const res = await fetch("/api/availability?venue=st_johns_park&days=8", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = (await res.json()) as GridResponse;
       setData(json);
