@@ -12,7 +12,7 @@ app.get("/api/health", (c) => c.json({ ok: true }));
  *   venue: "st_johns_park",
  *   generated_at: "...",
  *   days: [{ date: "2026-02-05", label: "Thu 05" }, ...],
- *   times: ["07:00","08:00",...],
+ *   times: ["07:00","08:00",...,"22:00"],
  *   counts: number[][] // counts[timeIndex][dayIndex]
  * }
  *
@@ -56,6 +56,7 @@ app.get("/api/availability", (c) => {
     "19:00",
     "20:00",
     "21:00",
+    "22:00",
   ];
 
   // St Johns Park has 2 courts => counts are 0..2
