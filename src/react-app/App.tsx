@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const REFRESH_OPTIONS = [
@@ -75,13 +75,16 @@ const tableStyle = {
 
 type Day = { date: string; label: string };
 
+type AvailabilitySlot = {
+  time: string;
+  date: string;
+  count: number;
+};
+
 type GridResponse = {
-  venue: string;
   generated_at: string;
   days: Day[];
-  times: string[];
-  counts: number[][];
-  maxCourts: number;
+  slots: AvailabilitySlot[];
 };
 
 type HoverCell = { ti: number; di: number } | null;
@@ -468,6 +471,16 @@ const priceOptions: Option[] = [
   { value: "4+", label: "4+" },
 ];
 
+const SCRAPEABLE_VENUE_IDS = [
+  "st_johns_park",
+  "bethnal_green_gardens",
+  "poplar_recreation_ground",
+  "ropemakers_fields",
+  "king_edward_memorial_park",
+  "wapping_gardens",
+  "victoria_park",
+];
+
 export default function App() {
   const [data, setData] = useState<GridResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -483,21 +496,32 @@ export default function App() {
   const [refreshMs, setRefreshMs] = useState<number>(300_000);
   const refreshTimerRef = useRef<number | null>(null);
 
-  const fetchGrid = async () => {
+  const scrapeableSelected = useMemo(
+    () => SCRAPEABLE_VENUE_IDS.filter((id) => selectedVenueIds.includes(id)),
+    [selectedVenueIds]
+  );
+
+  const fetchGrid = useCallback(async () => {
+    if (scrapeableSelected.length === 0) {
+      setData(null);
+      return;
+    }
     try {
       setError(null);
-      const res = await fetch("/api/availability?venue=st_johns_park&days=8", { cache: "no-store" });
+      const res = await fetch(
+        `/api/availability?venues=${scrapeableSelected.join(",")}&days=8`,
+        { cache: "no-store" }
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = (await res.json()) as GridResponse;
-      setData(json);
+      setData((await res.json()) as GridResponse);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  };
+  }, [scrapeableSelected]);
 
   useEffect(() => {
     fetchGrid();
-  }, []);
+  }, [fetchGrid]);
 
   useEffect(() => {
     if (refreshTimerRef.current) {
@@ -511,7 +535,7 @@ export default function App() {
       if (refreshTimerRef.current) window.clearInterval(refreshTimerRef.current);
       refreshTimerRef.current = null;
     };
-  }, [refreshMs]);
+  }, [refreshMs, fetchGrid]);
 
   const updated = useMemo(() => {
     if (!data?.generated_at) return "—";
@@ -732,120 +756,122 @@ export default function App() {
 
       {!data && !error && <div style={{ marginTop: uiStyle.loadingMarginTop }}>Loading…</div>}
 
-      {data && (
-        <div
-          style={{
-            marginTop: tableStyle.wrapperMarginTop,
-            borderRadius: tableStyle.wrapperBorderRadius,
-            overflow: "hidden",
-            border: tableStyle.wrapperBorder,
-            background: tableStyle.wrapperBackground,
-            width: tableStyle.wrapperWidth,
-            maxWidth: tableStyle.wrapperMaxWidth,
-          }}
-        >
-          <table
+      {data && (() => {
+        const slotMap = new Map<string, number>();
+        for (const s of data.slots) slotMap.set(`${s.time}|${s.date}`, s.count);
+
+        const times = [...new Set(data.slots.map((s) => s.time))].sort((a, b) => a.localeCompare(b));
+
+        return (
+          <div
             style={{
-              borderCollapse: "collapse",
-              tableLayout: "fixed",
+              marginTop: tableStyle.wrapperMarginTop,
+              borderRadius: tableStyle.wrapperBorderRadius,
+              overflow: "hidden",
+              border: tableStyle.wrapperBorder,
+              background: tableStyle.wrapperBackground,
+              width: tableStyle.wrapperWidth,
+              maxWidth: tableStyle.wrapperMaxWidth,
             }}
           >
-            <thead>
-              <tr style={{ background: tableStyle.headerBackground }}>
-                <th
-                  style={{
-                    padding: tableStyle.headerPadding,
-                    textAlign: "center",
-                    fontSize: tableStyle.fontSize,
-                    fontWeight: tableStyle.fontWeight,
-                    borderBottom: tableStyle.headerBorderBottom,
-                    width: tableStyle.columnWidth,
-                  }}
-                >
-                  Time
-                </th>
-
-                {data.days.map((d) => (
+            <table style={{ borderCollapse: "collapse", tableLayout: "fixed" }}>
+              <thead>
+                <tr style={{ background: tableStyle.headerBackground }}>
                   <th
-                    key={d.date}
                     style={{
                       padding: tableStyle.headerPadding,
                       textAlign: "center",
                       fontSize: tableStyle.fontSize,
                       fontWeight: tableStyle.fontWeight,
                       borderBottom: tableStyle.headerBorderBottom,
-                      whiteSpace: "nowrap",
                       width: tableStyle.columnWidth,
                     }}
                   >
-                    {d.label}
+                    Time
                   </th>
-                ))}
-              </tr>
-            </thead>
 
-            <tbody>
-              {data.times.map((t, ti) => (
-                <tr key={t}>
-                  <td
-                    style={{
-                      padding: tableStyle.timeCellPadding,
-                      borderBottom: tableStyle.borderBottom,
-                      background: tableStyle.timeColumnBackground,
-                      fontVariantNumeric: "tabular-nums",
-                      fontSize: tableStyle.fontSize,
-                      fontWeight: tableStyle.fontWeight,
-                      textAlign: "center",
-                      width: tableStyle.columnWidth,
-                    }}
-                  >
-                    {t}
-                  </td>
-
-                  {data.days.map((d, di) => {
-                    const count = data.counts?.[ti]?.[di] ?? 0;
-                    const isHovered = hover?.ti === ti && hover?.di === di;
-                    const displayCount = count > 10 ? "10+" : count;
-
-                    return (
-                      <td
-                        key={`${t}_${d.date}`}
-                        onMouseEnter={() => setHover({ ti, di })}
-                        onMouseLeave={() => setHover(null)}
-                        style={{
-                          ...cellStyle(count, isHovered),
-                          padding: tableStyle.cellPadding,
-                          borderBottom: tableStyle.borderBottom,
-                          textAlign: "center",
-                          verticalAlign: "middle",
-                          cursor: "default",
-                          fontSize: tableStyle.fontSize,
-                          fontWeight: tableStyle.fontWeight,
-                          width: tableStyle.columnWidth,
-                        }}
-                      >
-                        {count === 0 ? (
-                          <div style={{ opacity: 0.75, fontWeight: tableStyle.numberFontWeight }}>–</div>
-                        ) : (
-                          <div
-                            style={{
-                              fontSize: tableStyle.numberFontSize,
-                              fontWeight: tableStyle.numberFontWeight,
-                              color: "rgba(0, 187, 99, 1)",
-                            }}
-                          >
-                            {displayCount}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
+                  {data.days.map((d) => (
+                    <th
+                      key={d.date}
+                      style={{
+                        padding: tableStyle.headerPadding,
+                        textAlign: "center",
+                        fontSize: tableStyle.fontSize,
+                        fontWeight: tableStyle.fontWeight,
+                        borderBottom: tableStyle.headerBorderBottom,
+                        whiteSpace: "nowrap",
+                        width: tableStyle.columnWidth,
+                      }}
+                    >
+                      {d.label}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+
+              <tbody>
+                {times.map((t, ti) => (
+                  <tr key={t}>
+                    <td
+                      style={{
+                        padding: tableStyle.timeCellPadding,
+                        borderBottom: tableStyle.borderBottom,
+                        background: tableStyle.timeColumnBackground,
+                        fontVariantNumeric: "tabular-nums",
+                        fontSize: tableStyle.fontSize,
+                        fontWeight: tableStyle.fontWeight,
+                        textAlign: "center",
+                        width: tableStyle.columnWidth,
+                      }}
+                    >
+                      {t}
+                    </td>
+
+                    {data.days.map((d, di) => {
+                      const count = slotMap.get(`${t}|${d.date}`) ?? 0;
+                      const isHovered = hover?.ti === ti && hover?.di === di;
+                      const displayCount = count > 9 ? "10+" : count;
+
+                      return (
+                        <td
+                          key={`${t}_${d.date}`}
+                          onMouseEnter={() => setHover({ ti, di })}
+                          onMouseLeave={() => setHover(null)}
+                          style={{
+                            ...cellStyle(count, isHovered),
+                            padding: tableStyle.cellPadding,
+                            borderBottom: tableStyle.borderBottom,
+                            textAlign: "center",
+                            verticalAlign: "middle",
+                            cursor: "default",
+                            fontSize: tableStyle.fontSize,
+                            fontWeight: tableStyle.fontWeight,
+                            width: tableStyle.columnWidth,
+                          }}
+                        >
+                          {count > 0 ? (
+                            <div
+                              style={{
+                                fontSize: tableStyle.numberFontSize,
+                                fontWeight: tableStyle.numberFontWeight,
+                                color: "rgba(0, 187, 99, 1)",
+                              }}
+                            >
+                              {displayCount}
+                            </div>
+                          ) : (
+                            <div style={{ opacity: 0.3, fontWeight: tableStyle.numberFontWeight }}>–</div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
 
       <div
         style={{
