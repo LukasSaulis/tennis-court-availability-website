@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const REFRESH_OPTIONS = [
-  { label: "Off", ms: 0 },
+  { label: "1m", ms: 60000 },
   { label: "5m", ms: 300000 },
   { label: "15m", ms: 900000 },
   { label: "30m", ms: 1800000 },
@@ -87,7 +87,23 @@ type GridResponse = {
   slots: AvailabilitySlot[];
 };
 
+type SlotDetail = {
+  venue_id: string;
+  date: string;
+  time: string;
+  count: number;
+  booking_url: string;
+};
+
+type SlotDetailsResponse = {
+  generated_at: string;
+  date: string;
+  time: string;
+  venues: SlotDetail[];
+};
+
 type HoverCell = { ti: number; di: number } | null;
+type ActiveSlotDialog = { date: string; time: string; title: string } | null;
 
 type IndoorOption = "Yes" | "No";
 type FloodlightOption = "Yes" | "No";
@@ -122,6 +138,14 @@ function formatUpdatedLocal(ts: string) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(
     d.getMinutes()
   )}:${pad2(d.getSeconds())}`;
+}
+
+function formatSlotDialogTitle(dateISO: string, time: string) {
+  const d = new Date(`${dateISO}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return `${dateISO} @ ${time}`;
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = d.toLocaleDateString("en-GB", { month: "short" });
+  return `${day} ${month} @ ${time}`;
 }
 
 function cellStyle(count: number, isHovered: boolean) {
@@ -492,6 +516,10 @@ export default function App() {
   const [data, setData] = useState<GridResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hover, setHover] = useState<HoverCell>(null);
+  const [activeSlotDialog, setActiveSlotDialog] = useState<ActiveSlotDialog>(null);
+  const [slotDetails, setSlotDetails] = useState<SlotDetail[]>([]);
+  const [slotDetailsError, setSlotDetailsError] = useState<string | null>(null);
+  const [slotDetailsLoading, setSlotDetailsLoading] = useState(false);
 
   const [selectedIndoors, setSelectedIndoors] = useState<string[]>(indoorOptions.map((o) => o.value));
   const [selectedFloodlights, setSelectedFloodlights] = useState<string[]>(floodlightOptions.map((o) => o.value));
@@ -502,7 +530,7 @@ export default function App() {
   const [selectedTowerHamlets, setSelectedTowerHamlets] = useState<string[]>(["Yes"]);
   const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>(COURTS.map((c) => c.id));
 
-  const [refreshMs, setRefreshMs] = useState<number>(1_800_000);
+  const [refreshMs, setRefreshMs] = useState<number>(900_000);
   const refreshTimerRef = useRef<number | null>(null);
 
   const scrapeableSelected = useMemo(
@@ -550,6 +578,10 @@ export default function App() {
     if (!data?.generated_at) return "—";
     return formatUpdatedLocal(data.generated_at);
   }, [data?.generated_at]);
+
+  const courtById = useMemo(() => {
+    return new Map(COURTS.map((court) => [court.id, court]));
+  }, []);
 
   const courtsMatchingNonVenueFilters = useMemo(() => {
     return COURTS.filter((court) => {
@@ -608,6 +640,59 @@ export default function App() {
     if (selectedVenueIds.length === 0) return [];
     return courtsMatchingNonVenueFilters.filter((court) => selectedVenueIds.includes(court.id));
   }, [courtsMatchingNonVenueFilters, selectedVenueIds]);
+
+  const openSlotDialog = useCallback(
+    async (date: string, time: string, count: number) => {
+      if (count <= 0 || scrapeableSelected.length === 0) {
+        return;
+      }
+
+      setActiveSlotDialog({ date, time, title: formatSlotDialogTitle(date, time) });
+      setSlotDetails([]);
+      setSlotDetailsError(null);
+      setSlotDetailsLoading(true);
+
+      try {
+        const res = await fetch(
+          `/api/slot-details?venues=${scrapeableSelected.join(",")}&date=${date}&time=${time}`,
+          { cache: "no-store" }
+        );
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const payload = (await res.json()) as SlotDetailsResponse;
+        const sortedVenues = [...payload.venues].sort((a, b) => {
+          const left = courtById.get(a.venue_id)?.label ?? a.venue_id;
+          const right = courtById.get(b.venue_id)?.label ?? b.venue_id;
+          return left.localeCompare(right);
+        });
+
+        setSlotDetails(sortedVenues);
+      } catch (e) {
+        setSlotDetailsError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setSlotDetailsLoading(false);
+      }
+    },
+    [courtById, scrapeableSelected]
+  );
+
+  useEffect(() => {
+    if (!activeSlotDialog) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveSlotDialog(null);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeSlotDialog]);
 
   return (
     <div
@@ -836,13 +921,14 @@ export default function App() {
                           key={`${t}_${d.date}`}
                           onMouseEnter={() => setHover({ ti, di })}
                           onMouseLeave={() => setHover(null)}
+                          onClick={() => void openSlotDialog(d.date, t, count)}
                           style={{
                             ...cellStyle(count, isHovered),
                             padding: tableStyle.cellPadding,
                             borderBottom: tableStyle.borderBottom,
                             textAlign: "center",
                             verticalAlign: "middle",
-                            cursor: "default",
+                            cursor: count > 0 ? "pointer" : "default",
                             fontSize: tableStyle.fontSize,
                             fontWeight: tableStyle.fontWeight,
                             width: tableStyle.columnWidth,
@@ -871,6 +957,125 @@ export default function App() {
           </div>
         );
       })()}
+
+      {activeSlotDialog && (
+        <div
+          onClick={() => setActiveSlotDialog(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(5, 10, 20, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 100,
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "min(520px, 100%)",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              borderRadius: 16,
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(20, 31, 52, 0.98)",
+              boxShadow: "0 24px 80px rgba(0,0,0,0.45)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "18px 18px 12px",
+                borderBottom: "1px solid rgba(255,255,255,0.08)",
+                fontSize: 16,
+                fontWeight: 600,
+              }}
+            >
+              <div style={{ fontSize: 17, fontWeight: 600 }}>{activeSlotDialog.title}</div>
+              <button
+                onClick={() => setActiveSlotDialog(null)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  background: "rgba(28, 40, 65, 1)",
+                  color: "inherit",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                  fontSize: 16,
+                  marginTop: -5,
+                }}
+              >
+                X
+              </button>
+            </div>
+
+            <div style={{ padding: 18, display: "grid", gap: 12, fontSize: 16, fontWeight: 600 }}>
+              {slotDetailsLoading && <div>Loading venue details…</div>}
+
+              {!slotDetailsLoading && slotDetailsError && (
+                <div style={{ color: "salmon", fontSize: 16, fontWeight: 600 }}>Error: Could not load slot details.</div>
+              )}
+
+              {!slotDetailsLoading && !slotDetailsError && slotDetails.length === 0 && (
+                <div style={{ color: "salmon", fontSize: 16, fontWeight: 600 }}>No venue details available for this slot.</div>
+              )}
+
+              {!slotDetailsLoading && !slotDetailsError && slotDetails.map((detail) => {
+                const court = courtById.get(detail.venue_id);
+                const label = court ? `${court.label}` : detail.venue_id;
+
+                return (
+                  <div
+                    key={`${detail.venue_id}_${detail.date}_${detail.time}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 16,
+                      paddingBottom: 12,
+                      borderBottom: "1px solid rgba(255,255,255,0.08)",
+                      fontSize: 16,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <a
+                      href={detail.booking_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        color: "rgba(0, 220, 255, 1)",
+                        textDecoration: "none",
+                      }}
+                    >
+                      {label}
+                    </a>
+
+                    <div
+                      style={{
+                        minWidth: 24,
+                        textAlign: "right",
+                        color: "rgba(0, 220, 140, 1)",
+                        marginRight: 10,
+                      }}
+                    >
+                      {detail.count}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div
         style={{

@@ -14,6 +14,21 @@ type GridResponse = {
   slots: AvailabilitySlot[];
 };
 
+type VenueAvailabilityDetail = {
+  venue_id: string;
+  date: string;
+  time: string;
+  count: number;
+  booking_url: string;
+};
+
+type SlotDetailsResponse = {
+  generated_at: string;
+  date: string;
+  time: string;
+  venues: VenueAvailabilityDetail[];
+};
+
 type Slot = {
   time: string;
   court: string;
@@ -84,6 +99,79 @@ export default {
         availableAt0900: slots.filter((slot) => slot.time === "09:00" && slot.status === "available").length,
         htmlPreview: html.slice(0, 1200),
       });
+    }
+
+    if (url.pathname === "/api/slot-details") {
+      try {
+        const venueParam = url.searchParams.get("venues") || Object.keys(VENUES).join(",");
+        const dateISO = url.searchParams.get("date");
+        const time = url.searchParams.get("time");
+
+        if (!dateISO || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) {
+          return json({ error: "Expected date in YYYY-MM-DD format" }, 400);
+        }
+
+        if (!time || !/^\d{2}:\d{2}$/.test(time)) {
+          return json({ error: "Expected time in HH:MM format" }, 400);
+        }
+
+        const validVenues = venueParam
+          .split(",")
+          .map((v) => v.trim().toLowerCase())
+          .filter(Boolean)
+          .map((id) => VENUES[id])
+          .filter((v): v is VenueConfig => Boolean(v));
+
+        if (validVenues.length === 0) {
+          return json(
+            { error: `No valid venues. Available: ${Object.keys(VENUES).join(", ")}` },
+            400
+          );
+        }
+
+        const scrapeResults = await mapWithConcurrency(validVenues, SCRAPE_CONCURRENCY, async (venue) => {
+          try {
+            return await scrapeVenueForDateWithRetry(venue, dateISO, SCRAPE_RETRIES);
+          } catch (error) {
+            console.warn(`Failed to scrape ${venue.id} for ${dateISO}:`, error);
+            return {
+              venue: venue.id,
+              date: dateISO,
+              slots: [] as Slot[],
+            };
+          }
+        });
+
+        const venues: VenueAvailabilityDetail[] = scrapeResults
+          .map((result) => {
+            const count = result.slots.filter((slot) => slot.time === time && slot.status === "available").length;
+            return {
+              venue_id: result.venue,
+              date: dateISO,
+              time,
+              count,
+              booking_url: buildVenueBookingUrl(VENUES[result.venue], dateISO),
+            };
+          })
+          .filter((venue) => venue.count > 0);
+
+        const payload: SlotDetailsResponse = {
+          generated_at: new Date().toISOString(),
+          date: dateISO,
+          time,
+          venues,
+        };
+
+        return json(payload, 200, {
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        });
+      } catch (error) {
+        return json(
+          { error: error instanceof Error ? error.message : String(error) },
+          500,
+          { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" }
+        );
+      }
     }
 
     if (url.pathname === "/api/availability") {
@@ -240,6 +328,10 @@ function buildVenueUrl(venue: VenueConfig, dateISO: string): string {
     return `https://tennistowerhamlets.com/book/courts/${venue.path}#book`;
   }
 
+  return `https://tennistowerhamlets.com/book/courts/${venue.path}/${dateISO}#book`;
+}
+
+function buildVenueBookingUrl(venue: VenueConfig, dateISO: string): string {
   return `https://tennistowerhamlets.com/book/courts/${venue.path}/${dateISO}#book`;
 }
 
