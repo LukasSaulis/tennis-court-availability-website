@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const REFRESH_OPTIONS = [
-  { label: "1m", ms: 60000 },
   { label: "5m", ms: 300000 },
   { label: "15m", ms: 900000 },
   { label: "30m", ms: 1800000 },
@@ -528,7 +527,6 @@ export default function App() {
   const [selectedDistances, setSelectedDistances] = useState<string[]>(distanceOptions.map((o) => o.value));
   const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>(difficultyOptions.map((o) => o.value));
   const [selectedPrices, setSelectedPrices] = useState<string[]>(priceOptions.map((o) => o.value));
-  // const [selectedTowerHamlets, setSelectedTowerHamlets] = useState<string[]>(towerHamletsOptions.map((o) => o.value));
   const [selectedTowerHamlets, setSelectedTowerHamlets] = useState<string[]>(["Yes"]);
   const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>(COURTS.map((c) => c.id));
 
