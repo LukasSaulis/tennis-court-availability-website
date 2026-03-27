@@ -12,6 +12,7 @@ type GridResponse = {
   generated_at: string;
   days: Day[];
   slots: AvailabilitySlot[];
+  venue_slots: VenueAvailabilityDetail[];
 };
 
 type VenueAvailabilityDetail = {
@@ -241,10 +242,28 @@ export default {
           }
         }
 
+        // Build per-venue slot details so the frontend can pre-populate its cache
+        const venueSlots: VenueAvailabilityDetail[] = [];
+        for (const result of scrapeResults) {
+          for (const [time, timeSlots] of groupSlotsByTime(result.slots).entries()) {
+            const count = timeSlots.filter((s) => s.status === "available").length;
+            if (count > 0) {
+              venueSlots.push({
+                venue_id: result.venue,
+                date: result.date,
+                time,
+                count,
+                booking_url: buildVenueBookingUrl(VENUES[result.venue], result.date),
+              });
+            }
+          }
+        }
+
         const payload: GridResponse = {
           generated_at: new Date().toISOString(),
           days: dayList,
           slots,
+          venue_slots: venueSlots,
         };
 
         return json(payload, 200, {

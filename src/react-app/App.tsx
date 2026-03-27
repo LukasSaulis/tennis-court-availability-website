@@ -85,6 +85,7 @@ type GridResponse = {
   generated_at: string;
   days: Day[];
   slots: AvailabilitySlot[];
+  venue_slots?: SlotDetail[];
 };
 
 type SlotDetail = {
@@ -520,6 +521,7 @@ export default function App() {
   const [slotDetails, setSlotDetails] = useState<SlotDetail[]>([]);
   const [slotDetailsError, setSlotDetailsError] = useState<string | null>(null);
   const [slotDetailsLoading, setSlotDetailsLoading] = useState(false);
+  const slotDetailsCache = useRef<Map<string, SlotDetail[]>>(new Map());
 
   const [selectedIndoors, setSelectedIndoors] = useState<string[]>(indoorOptions.map((o) => o.value));
   const [selectedFloodlights, setSelectedFloodlights] = useState<string[]>(floodlightOptions.map((o) => o.value));
@@ -582,6 +584,29 @@ export default function App() {
   const courtById = useMemo(() => {
     return new Map(COURTS.map((court) => [court.id, court]));
   }, []);
+
+  // Pre-populate slot details cache from the grid response so clicking any
+  // available slot is instant — no extra API call needed.
+  useEffect(() => {
+    if (!data?.venue_slots) return;
+    slotDetailsCache.current.clear();
+    const grouped = new Map<string, SlotDetail[]>();
+    for (const vs of data.venue_slots) {
+      const key = `${scrapeableSelected.join(",")}|${vs.date}|${vs.time}`;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(vs);
+    }
+    for (const [key, details] of grouped.entries()) {
+      slotDetailsCache.current.set(
+        key,
+        details.sort((a, b) => {
+          const left = courtById.get(a.venue_id)?.label ?? a.venue_id;
+          const right = courtById.get(b.venue_id)?.label ?? b.venue_id;
+          return left.localeCompare(right);
+        })
+      );
+    }
+  }, [data, scrapeableSelected, courtById]);
 
   const courtsMatchingNonVenueFilters = useMemo(() => {
     return COURTS.filter((court) => {
@@ -648,8 +673,17 @@ export default function App() {
       }
 
       setActiveSlotDialog({ date, time, title: formatSlotDialogTitle(date, time) });
-      setSlotDetails([]);
       setSlotDetailsError(null);
+
+      const cacheKey = `${scrapeableSelected.join(",")}|${date}|${time}`;
+      const cached = slotDetailsCache.current.get(cacheKey);
+      if (cached) {
+        setSlotDetails(cached);
+        setSlotDetailsLoading(false);
+        return;
+      }
+
+      setSlotDetails([]);
       setSlotDetailsLoading(true);
 
       try {
@@ -669,6 +703,7 @@ export default function App() {
           return left.localeCompare(right);
         });
 
+        slotDetailsCache.current.set(cacheKey, sortedVenues);
         setSlotDetails(sortedVenues);
       } catch (e) {
         setSlotDetailsError(e instanceof Error ? e.message : String(e));
