@@ -219,7 +219,7 @@ export default {
           }
         });
 
-        // Collect all times seen and available counts per (time, date)
+        // Collect all times seen and venue counts (venues with ≥1 available court) per (time, date)
         const allTimesSet = new Set<string>();
         const countMap = new Map<string, number>();
         for (const result of scrapeResults) {
@@ -228,7 +228,7 @@ export default {
             const available = timeSlots.filter((s) => s.status === "available").length;
             if (available > 0) {
               const key = `${time}|${result.date}`;
-              countMap.set(key, (countMap.get(key) ?? 0) + available);
+              countMap.set(key, (countMap.get(key) ?? 0) + 1);
             }
           }
         }
