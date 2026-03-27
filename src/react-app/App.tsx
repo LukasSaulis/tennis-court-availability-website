@@ -15,7 +15,7 @@ const uiStyle = {
 
   controlsMarginTop: 20,
   controlsMarginLeft: 10,
-  controlsGap: 30,
+  controlsGap: 20,
   controlsRowGap: 14,
   controlsFontSize: 14,
 
@@ -846,16 +846,7 @@ export default function App() {
             setSelectedValues={setSelectedCourtQualities}
             width={130}
           />
-        </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: uiStyle.controlsGap,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
           <MultiSelectDropdown
             title="Tower Hamlets"
             options={towerHamletsOptions}
@@ -871,7 +862,7 @@ export default function App() {
             setSelectedValues={setSelectedVenueIds}
             searchable
             showClear
-            width={400}
+            width={460}
           />
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -880,7 +871,7 @@ export default function App() {
               value={refreshMs}
               onChange={(e) => setRefreshMs(Number(e.target.value))}
               style={{
-                width: 100,
+                width: 130,
                 height: uiStyle.controlHeight,
                 padding: uiStyle.controlPadding,
                 borderRadius: uiStyle.controlBorderRadius,
@@ -916,10 +907,10 @@ export default function App() {
             marginTop: uiStyle.errorMarginTop,
             padding: uiStyle.errorPadding,
             borderRadius: uiStyle.errorBorderRadius,
-            border: "1px solid rgba(255,0,0,0.4)",
+            border: "1px solid rgba(255,0,0,0.6)",
           }}
         >
-          <b style={{ color: "crimson" }}>Error:</b> {error}
+          <b style={{ color: "red" }}>Error: {error}</b>
         </div>
       )}
 
