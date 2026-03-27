@@ -148,12 +148,26 @@ function formatSlotDialogTitle(dateISO: string, time: string) {
   return `${day} ${month} @ ${time}`;
 }
 
-function cellStyle(count: number, isHovered: boolean) {
+function cellStyle(count: number, isHovered: boolean, hasStJohns: boolean) {
   const bgZero = "rgba(47, 35, 51, 1)";
+  const bgZeroHovered = "rgba(65, 28, 32, 1)";
   const bgAvail = "rgba(16, 48, 56, 1)";
+  const bgAvailHovered = "rgba(14, 59, 59, 1)";
+  const bgAvailStJohns = "rgba(86, 52, 12, 1)";
+  const bgAvailStJohnsHovered = "rgba(100, 61, 15, 1)";
 
   return {
-    background: isHovered ? "rgba(14, 59, 59, 1)" : count > 0 ? bgAvail : bgZero,
+    background: isHovered
+      ? count > 0
+        ? hasStJohns
+          ? bgAvailStJohnsHovered
+          : bgAvailHovered
+        : bgZeroHovered
+      : count > 0
+        ? hasStJohns
+          ? bgAvailStJohns
+          : bgAvail
+        : bgZero,
     transition: "background 120ms ease",
   } as const;
 }
@@ -877,6 +891,13 @@ export default function App() {
         const slotMap = new Map<string, number>();
         for (const s of data.slots) slotMap.set(`${s.time}|${s.date}`, s.count);
 
+        const stJohnsSlotSet = new Set<string>();
+        for (const s of data.venue_slots ?? []) {
+          if (s.venue_id === "st_johns_park" && s.count > 0) {
+            stJohnsSlotSet.add(`${s.time}|${s.date}`);
+          }
+        }
+
         const times = [...new Set(data.slots.map((s) => s.time))].sort((a, b) => a.localeCompare(b));
 
         return (
@@ -945,7 +966,9 @@ export default function App() {
                     </td>
 
                     {data.days.map((d, di) => {
-                      const count = slotMap.get(`${t}|${d.date}`) ?? 0;
+                      const slotKey = `${t}|${d.date}`;
+                      const count = slotMap.get(slotKey) ?? 0;
+                      const hasStJohns = stJohnsSlotSet.has(slotKey);
                       const isHovered = hover?.ti === ti && hover?.di === di;
                       const displayCount = count > 9 ? "10+" : count;
 
@@ -956,7 +979,7 @@ export default function App() {
                           onMouseLeave={() => setHover(null)}
                           onClick={() => void openSlotDialog(d.date, t, count)}
                           style={{
-                            ...cellStyle(count, isHovered),
+                            ...cellStyle(count, isHovered, hasStJohns),
                             padding: tableStyle.cellPadding,
                             borderBottom: tableStyle.borderBottom,
                             textAlign: "center",
