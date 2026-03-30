@@ -152,7 +152,7 @@ export default {
               date: dateISO,
               time,
               count,
-              booking_url: buildVenueBookingUrl(VENUES[result.venue], dateISO),
+              booking_url: buildVenueUrl(VENUES[result.venue], dateISO),
             };
           })
           .filter((venue) => venue.count > 0);
@@ -253,7 +253,7 @@ export default {
                 date: result.date,
                 time,
                 count,
-                booking_url: buildVenueBookingUrl(VENUES[result.venue], result.date),
+                booking_url: buildVenueUrl(VENUES[result.venue], result.date),
               });
             }
           }
@@ -341,16 +341,6 @@ async function scrapeVenueForDateWithRetry(
 }
 
 function buildVenueUrl(venue: VenueConfig, dateISO: string): string {
-  const todayISO = getTodayISOInLondon();
-
-  if (dateISO === todayISO) {
-    return `https://tennistowerhamlets.com/book/courts/${venue.path}#book`;
-  }
-
-  return `https://tennistowerhamlets.com/book/courts/${venue.path}/${dateISO}#book`;
-}
-
-function buildVenueBookingUrl(venue: VenueConfig, dateISO: string): string {
   return `https://tennistowerhamlets.com/book/courts/${venue.path}/${dateISO}#book`;
 }
 
