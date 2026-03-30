@@ -46,6 +46,7 @@ type VenueConfig = {
 
 const SCRAPE_CONCURRENCY = 1;
 const SCRAPE_RETRIES = 2;
+const LONDON_TIME_ZONE = "Europe/London";
 
 const VENUES: Record<string, VenueConfig> = {
   st_johns_park: { id: "st_johns_park", path: "st-johns-park", maxCourts: 2, courtPrefix: "Court" },
@@ -71,7 +72,7 @@ export default {
 
     if (url.pathname === "/api/debug-scrape") {
       const venueId = url.searchParams.get("venue")?.trim().toLowerCase() ?? "";
-      const dateISO = url.searchParams.get("date") ?? formatDateISO(new Date());
+      const dateISO = url.searchParams.get("date") ?? getTodayISOInLondon();
       const venue = VENUES[venueId];
 
       if (!venue) {
@@ -194,13 +195,12 @@ export default {
           );
         }
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const todayISO = getTodayISOInLondon();
 
         const dayList: Day[] = [];
         for (let i = 0; i < days; i++) {
-          const d = addDays(today, i);
-          dayList.push({ date: formatDateISO(d), label: formatDayLabel(d) });
+          const dateISO = addDaysToISO(todayISO, i);
+          dayList.push({ date: dateISO, label: formatDayLabelFromISO(dateISO) });
         }
 
         const scrapeTasks = validVenues.flatMap((venue) => dayList.map((day) => ({ venue, date: day.date })));
@@ -341,7 +341,7 @@ async function scrapeVenueForDateWithRetry(
 }
 
 function buildVenueUrl(venue: VenueConfig, dateISO: string): string {
-  const todayISO = formatDateISO(new Date());
+  const todayISO = getTodayISOInLondon();
 
   if (dateISO === todayISO) {
     return `https://tennistowerhamlets.com/book/courts/${venue.path}#book`;
@@ -465,16 +465,37 @@ function formatDateISO(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function formatDayLabel(d: Date): string {
-  const weekday = d.toLocaleDateString("en-GB", { weekday: "short" });
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${weekday} ${dd}`;
+function getTodayISOInLondon(): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: LONDON_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+
+  if (!year || !month || !day) {
+    return formatDateISO(new Date());
+  }
+
+  return `${year}-${month}-${day}`;
 }
 
-function addDays(d: Date, days: number): Date {
-  const x = new Date(d);
-  x.setDate(x.getDate() + days);
-  return x;
+function addDaysToISO(dateISO: string, days: number): string {
+  const [year, month, day] = dateISO.split("-").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day + days));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+function formatDayLabelFromISO(dateISO: string): string {
+  const [year, month, day] = dateISO.split("-").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const weekday = d.toLocaleDateString("en-GB", { weekday: "short", timeZone: LONDON_TIME_ZONE });
+  const dd = String(day).padStart(2, "0");
+  return `${weekday} ${dd}`;
 }
 
 function compareHHMM(a: string, b: string): number {
