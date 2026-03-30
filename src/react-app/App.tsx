@@ -418,7 +418,7 @@ function MultiSelectDropdown({
 const COURTS: Court[] = [
   { id: "battersea_park", label: "Battersea Park", indoor: false, floodlights: true, distanceMins: 60, distanceLabel: "1h", difficulty: "Hard", travelPrice: 4.85, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "belair_park", label: "Belair Park", indoor: false, floodlights: false, distanceMins: 60, distanceLabel: "1h", difficulty: "Hard", travelPrice: 3.95, towerHamlets: false, free: false, courtQuality: "TBC" },
-  { id: "bethnal_green_gardens", label: "Bethnal Green Gardens", indoor: false, floodlights: true, distanceMins: 35, distanceLabel: "35 min", difficulty: "Easy", travelPrice: 1.75, towerHamlets: true, free: false, courtQuality: "TBC" },
+  { id: "bethnal_green_gardens", label: "Bethnal Green Gardens", indoor: false, floodlights: true, distanceMins: 35, distanceLabel: "35 min", difficulty: "Easy", travelPrice: 1.75, towerHamlets: true, free: false, courtQuality: "Great" },
   { id: "britannia_leisure_centre", label: "Britannia Leisure Centre", indoor: false, floodlights: false, distanceMins: 50, distanceLabel: "50 min", difficulty: "Hard", travelPrice: 4.85, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "brockwell_park", label: "Brockwell Park", indoor: false, floodlights: false, distanceMins: 70, distanceLabel: "1h10", difficulty: "Hard", travelPrice: 4.85, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "brunswick_park", label: "Brunswick Park", indoor: false, floodlights: false, distanceMins: 60, distanceLabel: "1h", difficulty: "Hard", travelPrice: 3.95, towerHamlets: false, free: false, courtQuality: "TBC" },
@@ -464,24 +464,24 @@ const COURTS: Court[] = [
   { id: "new_river_sport_fitness", label: "New River Sport & Fitness (Indoors)", indoor: true, floodlights: true, distanceMins: 80, distanceLabel: "1h20", difficulty: "Hard", travelPrice: 3.95, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "parliament_hill_fields", label: "Parliament Hill Fields", indoor: false, floodlights: false, distanceMins: 65, distanceLabel: "1h5", difficulty: "Hard", travelPrice: 4.85, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "plashet_park", label: "Plashet Park", indoor: false, floodlights: false, distanceMins: 55, distanceLabel: "55 min", difficulty: "Hard", travelPrice: 1.75, towerHamlets: false, free: false, courtQuality: "TBC" },
-  { id: "poplar_recreation_ground", label: "Poplar Recreation Ground", indoor: false, floodlights: false, distanceMins: 17, distanceLabel: "17 min", difficulty: "Easy", travelPrice: 1.75, towerHamlets: true, free: false, courtQuality: "TBC" },
+  { id: "poplar_recreation_ground", label: "Poplar Recreation Ground", indoor: false, floodlights: false, distanceMins: 17, distanceLabel: "17 min", difficulty: "Easy", travelPrice: 1.75, towerHamlets: true, free: false, courtQuality: "Good" },
   { id: "queens_park", label: "Queen's Park", indoor: false, floodlights: false, distanceMins: 60, distanceLabel: "1h", difficulty: "Hard", travelPrice: 3.1, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "ravenscourt_park", label: "Ravenscourt Park", indoor: false, floodlights: false, distanceMins: 60, distanceLabel: "1h", difficulty: "Hard", travelPrice: 3.1, towerHamlets: false, free: false, courtQuality: "TBC" },
-  { id: "ropemakers_fields", label: "Ropemakers Fields", indoor: false, floodlights: false, distanceMins: 19, distanceLabel: "19 min", difficulty: "Easy", travelPrice: 2.1, towerHamlets: true, free: false, courtQuality: "TBC" },
+  { id: "ropemakers_fields", label: "Ropemakers Fields", indoor: false, floodlights: false, distanceMins: 19, distanceLabel: "19 min", difficulty: "Easy", travelPrice: 2.1, towerHamlets: true, free: false, courtQuality: "Good" },
   { id: "rosemary_gardens", label: "Rosemary Gardens", indoor: false, floodlights: false, distanceMins: 50, distanceLabel: "50 min", difficulty: "Hard", travelPrice: 4.85, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "royal_victoria_gardens", label: "Royal Victoria Gardens", indoor: false, floodlights: false, distanceMins: 40, distanceLabel: "40 min", difficulty: "Easy", travelPrice: 2.3, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "ruskin_park", label: "Ruskin Park", indoor: false, floodlights: false, distanceMins: 45, distanceLabel: "45 min", difficulty: "Hard", travelPrice: 2.7, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "southwark_park", label: "Southwark Park", indoor: false, floodlights: false, distanceMins: 30, distanceLabel: "30 min", difficulty: "Easy", travelPrice: 2.2, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "spring_hill_park_tennis", label: "Spring Hill Park Tennis", indoor: false, floodlights: false, distanceMins: 80, distanceLabel: "1h20", difficulty: "Hard", travelPrice: 1.75, towerHamlets: false, free: false, courtQuality: "TBC" },
-  { id: "st_johns_park", label: "St Johns Park", indoor: false, floodlights: true, distanceMins: 10, distanceLabel: "10 min", difficulty: "Easy", travelPrice: 0.0, towerHamlets: true, free: false, courtQuality: "TBC" },
+  { id: "st_johns_park", label: "St Johns Park", indoor: false, floodlights: true, distanceMins: 10, distanceLabel: "10 min", difficulty: "Easy", travelPrice: 0.0, towerHamlets: true, free: false, courtQuality: "Good" },
   { id: "stratford_park", label: "Stratford Park", indoor: false, floodlights: true, distanceMins: 45, distanceLabel: "45 min", difficulty: "Easy", travelPrice: 2.2, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "sydenham_wells_park", label: "Sydenham Wells Park", indoor: false, floodlights: false, distanceMins: 60, distanceLabel: "1h", difficulty: "Hard", travelPrice: 4.05, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "tanner_street_park", label: "Tanner Street Park", indoor: false, floodlights: false, distanceMins: 35, distanceLabel: "35 min", difficulty: "Easy", travelPrice: 3.1, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "telegraph_hill", label: "Telegraph Hill", indoor: false, floodlights: true, distanceMins: 45, distanceLabel: "45 min", difficulty: "Easy", travelPrice: 3.95, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "tufnell_park", label: "Tufnell Park", indoor: false, floodlights: false, distanceMins: 50, distanceLabel: "50 min", difficulty: "Hard", travelPrice: 3.1, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "vauxhall_park", label: "Vauxhall Park", indoor: false, floodlights: false, distanceMins: 50, distanceLabel: "50 min", difficulty: "Hard", travelPrice: 3.1, towerHamlets: false, free: false, courtQuality: "TBC" },
-  { id: "victoria_park", label: "Victoria Park", indoor: false, floodlights: false, distanceMins: 48, distanceLabel: "48 min", difficulty: "Hard", travelPrice: 1.75, towerHamlets: true, free: false, courtQuality: "TBC" },
-  { id: "wapping_gardens", label: "Wapping Gardens", indoor: false, floodlights: false, distanceMins: 31, distanceLabel: "31 min", difficulty: "Easy", travelPrice: 2.2, towerHamlets: true, free: false, courtQuality: "TBC" },
+  { id: "victoria_park", label: "Victoria Park", indoor: false, floodlights: false, distanceMins: 48, distanceLabel: "48 min", difficulty: "Hard", travelPrice: 1.75, towerHamlets: true, free: false, courtQuality: "Great" },
+  { id: "wapping_gardens", label: "Wapping Gardens", indoor: false, floodlights: false, distanceMins: 31, distanceLabel: "31 min", difficulty: "Easy", travelPrice: 2.2, towerHamlets: true, free: false, courtQuality: "Good" },
   { id: "waterlow_park", label: "Waterlow Park", indoor: false, floodlights: false, distanceMins: 65, distanceLabel: "1h5", difficulty: "Hard", travelPrice: 4.85, towerHamlets: false, free: false, courtQuality: "TBC" },
   { id: "westway_sports_fitness_centre", label: "Westway Sports & Fitness Centre (Indoors)", indoor: true, floodlights: true, distanceMins: 60, distanceLabel: "1h", difficulty: "Easy", travelPrice: 3.1, towerHamlets: false, free: false, courtQuality: "TBC" },
 ];
@@ -532,6 +532,14 @@ const courtQualityOptions: Option[] = [
   { value: "TBC", label: "TBC" },
 ];
 
+const defaultSelectedIndoors = ["No"];
+const defaultSelectedDistances = ["< 30m", "30m - 45m", "45m - 1h"];
+const defaultSelectedDifficulties = ["Easy"];
+const defaultSelectedPrices = ["< 2", "2 - 3"];
+const defaultSelectedTowerHamlets = ["Yes"];
+const defaultSelectedFree = ["No"];
+const defaultSelectedCourtQualities = ["Great", "Good"];
+
 const SCRAPEABLE_VENUE_IDS = [
   "st_johns_park",
   "bethnal_green_gardens",
@@ -552,14 +560,14 @@ export default function App() {
   const [slotDetailsLoading, setSlotDetailsLoading] = useState(false);
   const slotDetailsCache = useRef<Map<string, SlotDetail[]>>(new Map());
 
-  const [selectedIndoors, setSelectedIndoors] = useState<string[]>(indoorOptions.map((o) => o.value));
+  const [selectedIndoors, setSelectedIndoors] = useState<string[]>(defaultSelectedIndoors);
   const [selectedFloodlights, setSelectedFloodlights] = useState<string[]>(floodlightOptions.map((o) => o.value));
-  const [selectedDistances, setSelectedDistances] = useState<string[]>(distanceOptions.map((o) => o.value));
-  const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>(difficultyOptions.map((o) => o.value));
-  const [selectedPrices, setSelectedPrices] = useState<string[]>(priceOptions.map((o) => o.value));
-  const [selectedTowerHamlets, setSelectedTowerHamlets] = useState<string[]>(["Yes"]);
-  const [selectedFree, setSelectedFree] = useState<string[]>(freeOptions.map((o) => o.value));
-  const [selectedCourtQualities, setSelectedCourtQualities] = useState<string[]>(courtQualityOptions.map((o) => o.value));
+  const [selectedDistances, setSelectedDistances] = useState<string[]>(defaultSelectedDistances);
+  const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>(defaultSelectedDifficulties);
+  const [selectedPrices, setSelectedPrices] = useState<string[]>(defaultSelectedPrices);
+  const [selectedTowerHamlets, setSelectedTowerHamlets] = useState<string[]>(defaultSelectedTowerHamlets);
+  const [selectedFree, setSelectedFree] = useState<string[]>(defaultSelectedFree);
+  const [selectedCourtQualities, setSelectedCourtQualities] = useState<string[]>(defaultSelectedCourtQualities);
   const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>(COURTS.map((c) => c.id));
 
   const [refreshMs, setRefreshMs] = useState<number>(900_000);
