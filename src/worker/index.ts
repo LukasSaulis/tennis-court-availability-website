@@ -40,8 +40,10 @@ type Slot = {
 type VenueConfig = {
   id: string;
   path: string;
-  maxCourts: number;
+  towerHamlets: boolean;
+  courtNum: number;
   courtPrefix: string;
+  courtTime: string;
 };
 
 const SCRAPE_CONCURRENCY = 1;
@@ -49,13 +51,13 @@ const SCRAPE_RETRIES = 2;
 const LONDON_TIME_ZONE = "Europe/London";
 
 const VENUES: Record<string, VenueConfig> = {
-  st_johns_park: { id: "st_johns_park", path: "st-johns-park", maxCourts: 2, courtPrefix: "Court" },
-  bethnal_green_gardens: { id: "bethnal_green_gardens", path: "bethnal-green-gardens", maxCourts: 4, courtPrefix: "Tennis court" },
-  poplar_recreation_ground: { id: "poplar_recreation_ground", path: "poplar-rec-ground", maxCourts: 2, courtPrefix: "Court" },
-  ropemakers_fields: { id: "ropemakers_fields", path: "ropemakers-field", maxCourts: 2, courtPrefix: "Court" },
-  king_edward_memorial_park: { id: "king_edward_memorial_park", path: "king-edward-memorial-park", maxCourts: 2, courtPrefix: "Court" },
-  wapping_gardens: { id: "wapping_gardens", path: "wapping-gardens", maxCourts: 1, courtPrefix: "Court" },
-  victoria_park: { id: "victoria_park", path: "victoria-park", maxCourts: 4, courtPrefix: "Court" },
+  st_johns_park: { id: "st_johns_park", path: "st-johns-park", towerHamlets: true, courtNum: 2, courtPrefix: "Court", courtTime: "1h" },
+  bethnal_green_gardens: { id: "bethnal_green_gardens", path: "bethnal-green-gardens", towerHamlets: true, courtNum: 4, courtPrefix: "Tennis court", courtTime: "1h" },
+  poplar_recreation_ground: { id: "poplar_recreation_ground", path: "poplar-rec-ground", towerHamlets: true, courtNum: 2, courtPrefix: "Court", courtTime: "1h" },
+  ropemakers_fields: { id: "ropemakers_fields", path: "ropemakers-field", towerHamlets: true, courtNum: 2, courtPrefix: "Court", courtTime: "1h" },
+  king_edward_memorial_park: { id: "king_edward_memorial_park", path: "king-edward-memorial-park", towerHamlets: true, courtNum: 2, courtPrefix: "Court", courtTime: "1h" },
+  wapping_gardens: { id: "wapping_gardens", path: "wapping-gardens", towerHamlets: true, courtNum: 1, courtPrefix: "Court", courtTime: "1h" },
+  victoria_park: { id: "victoria_park", path: "victoria-park", towerHamlets: true, courtNum: 4, courtPrefix: "Court", courtTime: "1h" },
 };
 
 export default {
