@@ -417,12 +417,13 @@ function MultiSelectDropdown({
 }
 
 const COURTS: Court[] = [
-  { id: "bethnal_green_gardens", label: "Bethnal Green Gardens", indoors: false, floodlights: true, travelDistance: 35, travelDifficulty: "Easy", travelPrice: 1.75, free: false, courtQuality: "Great", towerHamlets: true },
+  { id: "bethnal_green_gardens", label: "Bethnal Green Gardens", indoors: false, floodlights: true, travelDistance: 35, travelDifficulty: "Easy", travelPrice: 2.3, free: false, courtQuality: "Great", towerHamlets: true },
+  { id: "king_edward_memorial_park", label: "King Edward Memorial Park", indoors: false, floodlights: false, travelDistance: 25, travelDifficulty: "Easy", travelPrice: 2.3, free: false, courtQuality: "Good", towerHamlets: true },
   { id: "poplar_recreation_ground", label: "Poplar Recreation Ground", indoors: false, floodlights: false, travelDistance: 17, travelDifficulty: "Easy", travelPrice: 1.75, free: false, courtQuality: "Good", towerHamlets: true },
-  { id: "ropemakers_fields", label: "Ropemakers Fields", indoors: false, floodlights: false, travelDistance: 19, travelDifficulty: "Easy", travelPrice: 2.1, free: false, courtQuality: "Good", towerHamlets: true },
+  { id: "ropemakers_fields", label: "Ropemakers Fields", indoors: false, floodlights: false, travelDistance: 19, travelDifficulty: "Easy", travelPrice: 2.3, free: false, courtQuality: "Good", towerHamlets: true },
   { id: "st_johns_park", label: "St Johns Park", indoors: false, floodlights: true, travelDistance: 10, travelDifficulty: "Easy", travelPrice: 0.0, free: false, courtQuality: "Good", towerHamlets: true },
-  { id: "victoria_park", label: "Victoria Park", indoors: false, floodlights: false, travelDistance: 48, travelDifficulty: "Easy", travelPrice: 1.75, free: false, courtQuality: "Great", towerHamlets: true },
-  { id: "wapping_gardens", label: "Wapping Gardens", indoors: false, floodlights: false, travelDistance: 31, travelDifficulty: "Easy", travelPrice: 2.2, free: false, courtQuality: "Good", towerHamlets: true },
+  { id: "victoria_park", label: "Victoria Park", indoors: false, floodlights: false, travelDistance: 48, travelDifficulty: "Easy", travelPrice: 2.3, free: false, courtQuality: "Great", towerHamlets: true },
+  { id: "wapping_gardens", label: "Wapping Gardens", indoors: false, floodlights: false, travelDistance: 31, travelDifficulty: "Easy", travelPrice: 2.3, free: false, courtQuality: "Good", towerHamlets: true },
 ];
 
 const indoorsOptions: Option[] = [
