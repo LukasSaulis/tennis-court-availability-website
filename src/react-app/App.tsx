@@ -931,6 +931,27 @@ export default function App() {
             </select>
           </div>
 
+          <button
+            type="button"
+            onClick={() => void fetchGrid()}
+            style={{
+              height: uiStyle.controlHeight,
+              padding: uiStyle.controlPadding,
+              borderRadius: uiStyle.controlBorderRadius,
+              border: uiStyle.controlBorder,
+              background: uiStyle.controlBackground,
+              color: "inherit",
+              outline: uiStyle.controlOutline,
+              fontFamily: uiStyle.textFontFamily,
+              fontSize: uiStyle.textFontSize,
+              fontWeight: uiStyle.textFontWeight,
+              cursor: "pointer",
+              boxSizing: "border-box",
+            }}
+          >
+            Refresh
+          </button>
+
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <b>Last Refresh:</b> {updated}
           </div>
