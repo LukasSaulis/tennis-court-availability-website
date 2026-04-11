@@ -377,11 +377,142 @@ export default {
   },
 };
 
+function detectScraperType(venue: VenueConfig): "tower_hamlets" | "clubspark_lta" | "clubspark_newham" | "unsupported" {
+  if (venue.towerHamlets) return "tower_hamlets";
+  const path = venue.path;
+  if (path.includes("clubspark.lta.org.uk")) return "clubspark_lta";
+  if (path.includes("newhamparkstennis.org.uk")) return "clubspark_newham";
+  return "unsupported";
+}
+
+function minutesToTime(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+type ClubSparkSession = {
+  Category: number;
+  StartTime: number;
+  EndTime: number;
+  Interval: number;
+  Cost?: number;
+};
+
+type ClubSparkDay = {
+  Date: string;
+  Sessions: ClubSparkSession[];
+};
+
+type ClubSparkResource = {
+  Name: string;
+  Days: ClubSparkDay[];
+};
+
+type ClubSparkResponse = {
+  Resources: ClubSparkResource[];
+};
+
+function buildClubSparkApiUrl(venue: VenueConfig, dateISO: string): string {
+  const path = venue.path;
+
+  // clubspark.lta.org.uk/SomeSlug/Booking/... → slug = SomeSlug
+  const ltaMatch = path.match(/clubspark\.lta\.org\.uk\/([^/]+)\//);
+  if (ltaMatch) {
+    return `https://clubspark.lta.org.uk/v0/VenueBooking/${ltaMatch[1]}/GetVenueSessions?startDate=${dateISO}&endDate=${dateISO}`;
+  }
+
+  // https://canning.newhamparkstennis.org.uk/... → subdomain = canning
+  const newhamMatch = path.match(/https?:\/\/([^.]+)\.newhamparkstennis\.org\.uk\//);
+  if (newhamMatch) {
+    const sub = newhamMatch[1];
+    return `https://${sub}.newhamparkstennis.org.uk/v0/VenueBooking/${sub}/GetVenueSessions?startDate=${dateISO}&endDate=${dateISO}`;
+  }
+
+  throw new Error(`Cannot build ClubSpark API URL for venue ${venue.id}`);
+}
+
+function parseClubSparkResponse(data: ClubSparkResponse, courtPrefix: string): Slot[] {
+  const slots: Slot[] = [];
+  const escapedPrefix = courtPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  for (const resource of (data.Resources ?? [])) {
+    const name: string = resource.Name ?? "";
+
+    // Filter by court prefix (skip resources that don't match)
+    if (courtPrefix !== "-" && !new RegExp(`^${escapedPrefix}\\s+\\d+`, "i").test(name)) {
+      continue;
+    }
+
+    for (const day of (resource.Days ?? [])) {
+      for (const session of (day.Sessions ?? [])) {
+        // Category 0 = open/available session
+        if (session.Category !== 0) continue;
+        const interval = session.Interval;
+        if (!interval || interval <= 0) continue;
+
+        // Generate one available slot per booking interval inside the open window
+        for (let t = session.StartTime; t + interval <= session.EndTime; t += interval) {
+          slots.push({
+            time: minutesToTime(t),
+            court: name,
+            status: "available",
+            price: session.Cost ?? null,
+          });
+        }
+      }
+    }
+  }
+
+  return slots.sort((a, b) => {
+    const t = compareHHMM(a.time, b.time);
+    if (t !== 0) return t;
+    return a.court.localeCompare(b.court);
+  });
+}
+
+async function scrapeClubSparkVenue(venue: VenueConfig, dateISO: string): Promise<{
+  venue: string;
+  date: string;
+  slots: Slot[];
+}> {
+  const apiUrl = buildClubSparkApiUrl(venue, dateISO);
+
+  const res = await fetch(apiUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      Accept: "application/json",
+      "Cache-Control": "no-cache",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`ClubSpark API failed for ${venue.id} on ${dateISO}: HTTP ${res.status}`);
+  }
+
+  const data = (await res.json()) as ClubSparkResponse;
+  const slots = parseClubSparkResponse(data, venue.courtPrefix);
+
+  return { venue: venue.id, date: dateISO, slots };
+}
+
 async function scrapeVenueForDate(venue: VenueConfig, dateISO: string): Promise<{
   venue: string;
   date: string;
   slots: Slot[];
 }> {
+  const scraperType = detectScraperType(venue);
+
+  if (scraperType === "clubspark_lta" || scraperType === "clubspark_newham") {
+    return await scrapeClubSparkVenue(venue, dateISO);
+  }
+
+  if (scraperType === "unsupported") {
+    // Platform not yet implemented — return empty gracefully
+    return { venue: venue.id, date: dateISO, slots: [] };
+  }
+
+  // Tower Hamlets HTML scraping
   const url = buildVenueUrl(venue, dateISO);
 
   const res = await fetch(url, {
