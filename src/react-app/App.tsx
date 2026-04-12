@@ -40,7 +40,7 @@ const uiStyle = {
   dropdownMaxHeight: 380,
   dropdownItemPadding: "8px 8px",
 
-  controlHeight: 40,
+  controlHeight: 36,
   controlPadding: "0 12px",
   controlBorderRadius: 10,
   controlBorder: "1px solid rgba(255,255,255,0.18)",
@@ -574,6 +574,7 @@ const defaultSelectedCourtQualities = ["Great", "Good"];
 const defaultSelectedTowerHamlets = ["Yes"];
 
 const SCRAPEABLE_VENUE_IDS = COURTS.map((court) => court.id);
+const INITIAL_SELECTED_VENUE_IDS = COURTS.map((court) => court.id);
 
 export default function App() {
   const [data, setData] = useState<GridResponse | null>(null);
@@ -593,25 +594,31 @@ export default function App() {
   const [selectedFree, setSelectedFree] = useState<string[]>(defaultSelectedFree);
   const [selectedCourtQualities, setSelectedCourtQualities] = useState<string[]>(defaultSelectedCourtQualities);
   const [selectedTowerHamlets, setSelectedTowerHamlets] = useState<string[]>(defaultSelectedTowerHamlets);
-  const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>(COURTS.map((c) => c.id));
+  const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>(INITIAL_SELECTED_VENUE_IDS);
+  const [appliedVenueIds, setAppliedVenueIds] = useState<string[]>(INITIAL_SELECTED_VENUE_IDS);
 
   const [refreshMs, setRefreshMs] = useState<number>(900_000);
   const refreshTimerRef = useRef<number | null>(null);
+  const hasFetchedInitiallyRef = useRef(false);
 
-  const scrapeableSelected = useMemo(
-    () => SCRAPEABLE_VENUE_IDS.filter((id) => selectedVenueIds.includes(id)),
-    [selectedVenueIds]
+  const appliedScrapeableSelected = useMemo(
+    () => SCRAPEABLE_VENUE_IDS.filter((id) => appliedVenueIds.includes(id)),
+    [appliedVenueIds]
   );
 
-  const fetchGrid = useCallback(async () => {
-    if (scrapeableSelected.length === 0) {
+  const fetchGrid = useCallback(async (venueIds: string[] = appliedVenueIds) => {
+    const nextScrapeableSelected = SCRAPEABLE_VENUE_IDS.filter((id) => venueIds.includes(id));
+
+    setAppliedVenueIds(venueIds);
+
+    if (nextScrapeableSelected.length === 0) {
       setData(null);
       return;
     }
     try {
       setError(null);
       const res = await fetch(
-        `/api/availability?venues=${scrapeableSelected.join(",")}&days=8`,
+        `/api/availability?venues=${nextScrapeableSelected.join(",")}&days=8`,
         { cache: "no-store" }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -619,10 +626,15 @@ export default function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [scrapeableSelected]);
+  }, [appliedVenueIds]);
 
   useEffect(() => {
-    fetchGrid();
+    if (hasFetchedInitiallyRef.current) {
+      return;
+    }
+
+    hasFetchedInitiallyRef.current = true;
+    void fetchGrid(INITIAL_SELECTED_VENUE_IDS);
   }, [fetchGrid]);
 
   useEffect(() => {
@@ -655,7 +667,7 @@ export default function App() {
     slotDetailsCache.current.clear();
     const grouped = new Map<string, SlotDetail[]>();
     for (const vs of data.venue_slots) {
-      const key = `${scrapeableSelected.join(",")}|${vs.date}|${vs.time}`;
+      const key = `${appliedScrapeableSelected.join(",")}|${vs.date}|${vs.time}`;
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key)!.push(vs);
     }
@@ -669,7 +681,7 @@ export default function App() {
         })
       );
     }
-  }, [data, scrapeableSelected, courtById]);
+  }, [data, appliedScrapeableSelected, courtById]);
 
   const courtsMatchingNonVenueFilters = useMemo(() => {
     return COURTS.filter((court) => {
@@ -739,14 +751,14 @@ export default function App() {
 
   const openSlotDialog = useCallback(
     async (date: string, time: string, count: number) => {
-      if (count <= 0 || scrapeableSelected.length === 0) {
+      if (count <= 0 || appliedScrapeableSelected.length === 0) {
         return;
       }
 
       setActiveSlotDialog({ date, time, title: formatSlotDialogTitle(date, time) });
       setSlotDetailsError(null);
 
-      const cacheKey = `${scrapeableSelected.join(",")}|${date}|${time}`;
+      const cacheKey = `${appliedScrapeableSelected.join(",")}|${date}|${time}`;
       const cached = slotDetailsCache.current.get(cacheKey);
       if (cached) {
         setSlotDetails(cached);
@@ -759,7 +771,7 @@ export default function App() {
 
       try {
         const res = await fetch(
-          `/api/slot-details?venues=${scrapeableSelected.join(",")}&date=${date}&time=${time}`,
+          `/api/slot-details?venues=${appliedScrapeableSelected.join(",")}&date=${date}&time=${time}`,
           { cache: "no-store" }
         );
 
@@ -782,7 +794,7 @@ export default function App() {
         setSlotDetailsLoading(false);
       }
     },
-    [courtById, scrapeableSelected]
+    [appliedScrapeableSelected, courtById]
   );
 
   useEffect(() => {
@@ -933,7 +945,7 @@ export default function App() {
 
           <button
             type="button"
-            onClick={() => void fetchGrid()}
+            onClick={() => void fetchGrid(selectedVenueIds)}
             style={{
               height: uiStyle.controlHeight,
               padding: uiStyle.controlPadding,
