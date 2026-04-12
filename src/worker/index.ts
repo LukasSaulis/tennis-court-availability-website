@@ -432,9 +432,11 @@ function buildClubSparkApiUrl(venue: VenueConfig, dateISO: string): string {
   throw new Error(`Cannot build ClubSpark API URL for venue ${venue.id}`);
 }
 
-function parseClubSparkResponse(data: ClubSparkResponse, courtPrefix: string): Slot[] {
+function parseClubSparkResponse(data: ClubSparkResponse, courtPrefix: string, dateISO: string): Slot[] {
   const slots: Slot[] = [];
   const escapedPrefix = courtPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const todayISO = getTodayISOInLondon();
+  const currentLondonMinutes = dateISO === todayISO ? getCurrentMinutesInLondon() : null;
 
   for (const resource of (data.Resources ?? [])) {
     const name: string = resource.Name ?? "";
@@ -453,6 +455,10 @@ function parseClubSparkResponse(data: ClubSparkResponse, courtPrefix: string): S
 
         // Generate one available slot per booking interval inside the open window
         for (let t = session.StartTime; t + interval <= session.EndTime; t += interval) {
+          if (currentLondonMinutes !== null && t <= currentLondonMinutes) {
+            continue;
+          }
+
           slots.push({
             time: minutesToTime(t),
             court: name,
@@ -491,7 +497,7 @@ async function scrapeClubSparkVenue(venue: VenueConfig, dateISO: string): Promis
   }
 
   const data = (await res.json()) as ClubSparkResponse;
-  const slots = parseClubSparkResponse(data, venue.courtPrefix);
+  const slots = parseClubSparkResponse(data, venue.courtPrefix, dateISO);
 
   return { venue: venue.id, date: dateISO, slots };
 }
@@ -702,6 +708,20 @@ function getTodayISOInLondon(): string {
   }
 
   return `${year}-${month}-${day}`;
+}
+
+function getCurrentMinutesInLondon(): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: LONDON_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+
+  return hour * 60 + minute;
 }
 
 function addDaysToISO(dateISO: string, days: number): string {
