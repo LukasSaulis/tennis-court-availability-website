@@ -565,16 +565,68 @@ const towerHamletsOptions: Option[] = [
   { value: "No", label: "No" },
 ];
 
-const defaultSelectedIndoors = ["No"];
-const defaultSelectedTravelDistances = ["< 30m", "30m - 45m", "45m - 1h"];
-const defaultSelectedTravelDifficulties = ["Easy"];
-const defaultSelectedTravelPrices = ["< 2", "2 - 3"];
-const defaultSelectedFree = ["No"];
-const defaultSelectedCourtQualities = ["Great", "Good"];
+const defaultSelectedIndoors = indoorsOptions.map((o) => o.value);
+const defaultSelectedFloodlights = floodlightsOptions.map((o) => o.value);
+const defaultSelectedTravelDistances = travelDistanceOptions.map((o) => o.value);
+const defaultSelectedTravelDifficulties = travelDifficultyOptions.map((o) => o.value);
+const defaultSelectedTravelPrices = travelPriceOptions.map((o) => o.value);
+const defaultSelectedFree = freeOptions.map((o) => o.value);
+const defaultSelectedCourtQualities = courtQualityOptions.map((o) => o.value);
 const defaultSelectedTowerHamlets = ["Yes"];
 
 const SCRAPEABLE_VENUE_IDS = COURTS.map((court) => court.id);
-const INITIAL_SELECTED_VENUE_IDS = COURTS.map((court) => court.id);
+
+function getDefaultMatchingVenueIds() {
+  return COURTS.filter((court) => {
+    const indoorsValue: IndoorsOption = court.indoors ? "Yes" : "No";
+    const indoorsMatches = defaultSelectedIndoors.length === 0 || defaultSelectedIndoors.includes(indoorsValue);
+
+    const floodlightsValue: FloodlightsOption = court.floodlights ? "Yes" : "No";
+    const floodlightsMatches =
+      defaultSelectedFloodlights.length === 0 || defaultSelectedFloodlights.includes(floodlightsValue);
+
+    const travelDistanceMatches =
+      defaultSelectedTravelDistances.length === 0 ||
+      defaultSelectedTravelDistances.length === travelDistanceOptions.length ||
+      defaultSelectedTravelDistances.some((bucket) =>
+        matchesTravelDistance(bucket as TravelDistanceBucket, court.travelDistance)
+      );
+
+    const travelDifficultyMatches =
+      defaultSelectedTravelDifficulties.length === 0 ||
+      defaultSelectedTravelDifficulties.includes(court.travelDifficulty);
+
+    const travelPriceMatches =
+      defaultSelectedTravelPrices.length === 0 ||
+      defaultSelectedTravelPrices.length === travelPriceOptions.length ||
+      defaultSelectedTravelPrices.some((bucket) => matchesTravelPrice(bucket as TravelPriceBucket, court.travelPrice));
+
+    const freeValue: FreeOption = court.free ? "Yes" : "No";
+    const freeMatches = defaultSelectedFree.length === 0 || defaultSelectedFree.includes(freeValue);
+
+    const courtQualityMatches =
+      defaultSelectedCourtQualities.length === 0 ||
+      defaultSelectedCourtQualities.includes(court.courtQuality);
+
+    const towerHamletsValue: TowerHamletsOption = court.towerHamlets ? "Yes" : "No";
+    const towerHamletsMatches =
+      defaultSelectedTowerHamlets.length === 0 ||
+      defaultSelectedTowerHamlets.includes(towerHamletsValue);
+
+    return (
+      indoorsMatches &&
+      floodlightsMatches &&
+      travelDistanceMatches &&
+      travelDifficultyMatches &&
+      travelPriceMatches &&
+      freeMatches &&
+      courtQualityMatches &&
+      towerHamletsMatches
+    );
+  }).map((court) => court.id);
+}
+
+const INITIAL_SELECTED_VENUE_IDS = getDefaultMatchingVenueIds();
 
 export default function App() {
   const [data, setData] = useState<GridResponse | null>(null);
@@ -587,7 +639,7 @@ export default function App() {
   const slotDetailsCache = useRef<Map<string, SlotDetail[]>>(new Map());
 
   const [selectedIndoors, setSelectedIndoors] = useState<string[]>(defaultSelectedIndoors);
-  const [selectedFloodlights, setSelectedFloodlights] = useState<string[]>(floodlightsOptions.map((o) => o.value));
+  const [selectedFloodlights, setSelectedFloodlights] = useState<string[]>(defaultSelectedFloodlights);
   const [selectedTravelDistances, setSelectedTravelDistances] = useState<string[]>(defaultSelectedTravelDistances);
   const [selectedTravelDifficulties, setSelectedTravelDifficulties] = useState<string[]>(defaultSelectedTravelDifficulties);
   const [selectedTravelPrices, setSelectedTravelPrices] = useState<string[]>(defaultSelectedTravelPrices);
