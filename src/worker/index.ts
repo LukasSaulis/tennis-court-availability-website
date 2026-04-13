@@ -401,6 +401,19 @@ function minutesToTime(minutes: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function mergeSlotPrices(left: number | null, right: number | null): number | null {
+  if (left === null && right === null) {
+    return null;
+  }
+
+  return (left ?? 0) + (right ?? 0);
+}
+
 type ClubSparkSession = {
   Category: number;
   StartTime: number;
@@ -586,7 +599,7 @@ async function scrapeClubSparkVenue(venue: VenueConfig, dateISO: string): Promis
   }
 
   const data = (await res.json()) as ClubSparkResponse;
-  const slots = parseClubSparkResponse(data, venue.courtPrefix, dateISO);
+  const slots = normalizeSlotsForVenue(venue, parseClubSparkResponse(data, venue.courtPrefix, dateISO));
 
   return { venue: venue.id, date: dateISO, slots };
 }
@@ -623,7 +636,7 @@ async function scrapeVenueForDate(venue: VenueConfig, dateISO: string): Promise<
   }
 
   const html = await res.text();
-  const slots = parseSlotsFromHTML(html, venue.courtPrefix);
+  const slots = normalizeSlotsForVenue(venue, parseSlotsFromHTML(html, venue.courtPrefix));
 
   if (slots.length === 0) {
     throw new Error(`No slot rows parsed for ${venue.id} on ${dateISO}`);
@@ -712,6 +725,55 @@ function parseSlotsFromHTML(html: string, courtPrefix: string): Slot[] {
   }
 
   return slots.sort((a, b) => {
+    const t = compareHHMM(a.time, b.time);
+    if (t !== 0) return t;
+    return a.court.localeCompare(b.court);
+  });
+}
+
+function normalizeSlotsForVenue(venue: VenueConfig, slots: Slot[]): Slot[] {
+  if (venue.courtTime !== "30m") {
+    return slots;
+  }
+
+  const availableByCourt = new Map<string, Map<string, Slot>>();
+
+  for (const slot of slots) {
+    if (slot.status !== "available") continue;
+
+    if (!availableByCourt.has(slot.court)) {
+      availableByCourt.set(slot.court, new Map<string, Slot>());
+    }
+
+    availableByCourt.get(slot.court)!.set(slot.time, slot);
+  }
+
+  const normalized: Slot[] = [];
+
+  for (const [court, timeMap] of availableByCourt.entries()) {
+    const sortedTimes = [...timeMap.keys()].sort(compareHHMM);
+
+    for (const time of sortedTimes) {
+      const startMinutes = timeToMinutes(time);
+
+      // Only allow hour-long starts on the hour: 09:00, 18:00, etc.
+      if (startMinutes % 60 !== 0) continue;
+
+      const current = timeMap.get(time);
+      const next = timeMap.get(minutesToTime(startMinutes + 30));
+
+      if (!current || !next) continue;
+
+      normalized.push({
+        time,
+        court,
+        status: "available",
+        price: mergeSlotPrices(current.price, next.price),
+      });
+    }
+  }
+
+  return normalized.sort((a, b) => {
     const t = compareHHMM(a.time, b.time);
     if (t !== 0) return t;
     return a.court.localeCompare(b.court);
