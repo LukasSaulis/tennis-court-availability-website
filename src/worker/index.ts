@@ -137,7 +137,7 @@ const VENUES: Record<string, VenueConfig> = {
   plumstead_common: { id: "plumstead_common", path: "https://clubspark.lta.org.uk/PlumsteadCommon/Booking/BookByDate#?date=2026-03-31&role=guest", towerHamlets: false, courtNum: 3, courtPrefix: "Court", courtTime: "1h" },
   preston_park: { id: "preston_park", path: "https://clubspark.lta.org.uk/PrestonPark/Booking/BookByDate#?date=2026-03-31&role=guest", towerHamlets: false, courtNum: 6, courtPrefix: "Court", courtTime: "1h" },
   priory_park: { id: "priory_park", path: "https://clubspark.lta.org.uk/PrioryPark2/Booking/BookByDate#?date=2026-03-31&role=guest", towerHamlets: false, courtNum: 4, courtPrefix: "Court", courtTime: "1h" },
-  queens_park: { id: "queens_park", path: "https://clubspark.lta.org.uk/QueensParkTennisCourts/Booking/BookByDate#?date=2026-03-31&role=guest", towerHamlets: false, courtNum: 6, courtPrefix: "Court", courtTime: "1h" },
+  //queens_park: { id: "queens_park", path: "https://clubspark.lta.org.uk/QueensParkTennisCourts/Booking/BookByDate#?date=2026-03-31&role=guest", towerHamlets: false, courtNum: 6, courtPrefix: "Court", courtTime: "1h" },
   raphael_park: { id: "raphael_park", path: "https://clubspark.lta.org.uk/RaphaelPark/Booking/BookByDate#?date=2026-03-31&role=guest", towerHamlets: false, courtNum: 7, courtPrefix: "Court", courtTime: "1h" },
   ray_park: { id: "ray_park", path: "https://clubspark.lta.org.uk/RayPark/Booking/BookByDate#?date=2026-03-31&role=guest", towerHamlets: false, courtNum: 2, courtPrefix: "Court", courtTime: "1h" },
   roe_green_park: { id: "roe_green_park", path: "https://clubspark.lta.org.uk/RoeGreenPark/Booking/BookByDate#?date=2026-03-31&role=guest", towerHamlets: false, courtNum: 3, courtPrefix: "Court", courtTime: "1h" },

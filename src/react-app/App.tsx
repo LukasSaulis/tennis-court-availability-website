@@ -497,7 +497,7 @@ const COURTS: Court[] = [
   { id: "plumstead_common", label: "Plumstead Common", indoors: false, floodlights: false, travelDistance: 45, travelDifficulty: "Easy", travelPrice: 4.95, free: false, courtQuality: "TBC", towerHamlets: false },
   { id: "preston_park", label: "Preston Park", indoors: false, floodlights: false, travelDistance: 70, travelDifficulty: "Hard", travelPrice: 4.8, free: true, courtQuality: "TBC", towerHamlets: false },
   { id: "priory_park", label: "Priory Park", indoors: false, floodlights: false, travelDistance: 70, travelDifficulty: "Hard", travelPrice: 7.7, free: true, courtQuality: "TBC", towerHamlets: false },
-  { id: "queens_park", label: "Queen's Park", indoors: false, floodlights: false, travelDistance: 60, travelDifficulty: "Easy", travelPrice: 3.6, free: false, courtQuality: "TBC", towerHamlets: false },
+  //{ id: "queens_park", label: "Queen's Park", indoors: false, floodlights: false, travelDistance: 60, travelDifficulty: "Easy", travelPrice: 3.6, free: false, courtQuality: "TBC", towerHamlets: false },
   { id: "raphael_park", label: "Raphael Park", indoors: false, floodlights: false, travelDistance: 70, travelDifficulty: "Easy", travelPrice: 3.8, free: true, courtQuality: "TBC", towerHamlets: false },
   { id: "ray_park", label: "Ray Park", indoors: false, floodlights: false, travelDistance: 60, travelDifficulty: "Easy", travelPrice: 3.2, free: true, courtQuality: "TBC", towerHamlets: false },
   { id: "roe_green_park", label: "Roe Green Park", indoors: false, floodlights: false, travelDistance: 70, travelDifficulty: "Easy", travelPrice: 4.8, free: true, courtQuality: "TBC", towerHamlets: false },
