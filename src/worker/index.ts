@@ -50,6 +50,11 @@ const SCRAPE_CONCURRENCY = 1;
 const SCRAPE_RETRIES = 2;
 const LONDON_TIME_ZONE = "Europe/London";
 const CLUBSPARK_GUEST_BOOKING_WINDOW_CACHE = new Map<string, number | null>();
+const CLUBSPARK_GUEST_BOOKING_WINDOW_OVERRIDES: Record<string, number> = {
+  oliver_tambo_recreation_ground: 3,
+  parliament_hill_fields: 1,
+  west_ham_park: 1,
+};
 
 const VENUES: Record<string, VenueConfig> = {
   st_johns_park: { id: "st_johns_park", path: "st-johns-park", towerHamlets: true, courtNum: 2, courtPrefix: "Court", courtTime: "1h" },
@@ -436,6 +441,11 @@ function buildClubSparkApiUrl(venue: VenueConfig, dateISO: string): string {
 }
 
 async function getClubSparkGuestAdvanceBookingDays(venue: VenueConfig): Promise<number | null> {
+  const override = CLUBSPARK_GUEST_BOOKING_WINDOW_OVERRIDES[venue.id];
+  if (override !== undefined) {
+    return override;
+  }
+
   if (CLUBSPARK_GUEST_BOOKING_WINDOW_CACHE.has(venue.id)) {
     return CLUBSPARK_GUEST_BOOKING_WINDOW_CACHE.get(venue.id) ?? null;
   }
@@ -471,26 +481,29 @@ function inferGuestAdvanceBookingDaysFromHtml(html: string): number | null {
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;|&#160;/gi, " ")
     .replace(/&amp;/gi, "&")
+    .replace(/&#39;/gi, "'")
     .replace(/\s+/g, " ")
     .trim();
 
-  const currentDayMatch = text.match(
-    /(?:non[-\s]?priority(?:\s+members?)?|non[-\s]?members?|guests?|public)[^.]{0,160}?current day\s*\+\s*(\d{1,2})/i
-  );
-  if (currentDayMatch) {
-    return Number(currentDayMatch[1]);
+  const candidates: number[] = [];
+
+  for (const match of text.matchAll(/current day\s*\+\s*(\d{1,2})/gi)) {
+    candidates.push(Number(match[1]));
   }
 
-  const advanceMatch = text.match(
-    /(?:non[-\s]?priority(?:\s+members?)?|non[-\s]?members?|guests?|public)[^.]{0,160}?can book(?: up to)?\s*(\d{1,2})\s*(day|days|week|weeks)/i
-  );
-  if (advanceMatch) {
-    const value = Number(advanceMatch[1]);
-    const unit = advanceMatch[2].toLowerCase();
-    return unit.startsWith("week") ? Math.max(0, value * 7 - 1) : value;
+  for (const match of text.matchAll(
+    /(?:book|booking|reserve|reserved)[^.]{0,120}?(?:up to\s*)?(\d{1,2})\s*(day|days|week|weeks)\s+in\s+advance/gi
+  )) {
+    const value = Number(match[1]);
+    const unit = match[2].toLowerCase();
+    candidates.push(unit.startsWith("week") ? Math.max(0, value * 7 - 1) : value);
   }
 
-  return null;
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return Math.min(...candidates);
 }
 
 function parseClubSparkResponse(data: ClubSparkResponse, courtPrefix: string, dateISO: string): Slot[] {
