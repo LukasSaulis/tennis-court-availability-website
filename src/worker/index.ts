@@ -49,6 +49,7 @@ type VenueConfig = {
 const SCRAPE_CONCURRENCY = 1;
 const SCRAPE_RETRIES = 2;
 const LONDON_TIME_ZONE = "Europe/London";
+const CLUBSPARK_GUEST_BOOKING_WINDOW_CACHE = new Map<string, number | null>();
 
 const VENUES: Record<string, VenueConfig> = {
   st_johns_park: { id: "st_johns_park", path: "st-johns-park", towerHamlets: true, courtNum: 2, courtPrefix: "Court", courtTime: "1h" },
@@ -397,6 +398,8 @@ type ClubSparkSession = {
   EndTime: number;
   Interval: number;
   Cost?: number;
+  Capacity?: number;
+  Restrictions?: string[] | null;
 };
 
 type ClubSparkDay = {
@@ -432,6 +435,64 @@ function buildClubSparkApiUrl(venue: VenueConfig, dateISO: string): string {
   throw new Error(`Cannot build ClubSpark API URL for venue ${venue.id}`);
 }
 
+async function getClubSparkGuestAdvanceBookingDays(venue: VenueConfig): Promise<number | null> {
+  if (CLUBSPARK_GUEST_BOOKING_WINDOW_CACHE.has(venue.id)) {
+    return CLUBSPARK_GUEST_BOOKING_WINDOW_CACHE.get(venue.id) ?? null;
+  }
+
+  try {
+    const res = await fetch(buildVenueUrl(venue, getTodayISOInLondon()), {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const html = await res.text();
+    const days = inferGuestAdvanceBookingDaysFromHtml(html);
+    CLUBSPARK_GUEST_BOOKING_WINDOW_CACHE.set(venue.id, days);
+    return days;
+  } catch (error) {
+    console.warn(`Could not infer guest booking window for ${venue.id}:`, error);
+    CLUBSPARK_GUEST_BOOKING_WINDOW_CACHE.set(venue.id, null);
+    return null;
+  }
+}
+
+function inferGuestAdvanceBookingDaysFromHtml(html: string): number | null {
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const currentDayMatch = text.match(
+    /(?:non[-\s]?priority(?:\s+members?)?|non[-\s]?members?|guests?|public)[^.]{0,160}?current day\s*\+\s*(\d{1,2})/i
+  );
+  if (currentDayMatch) {
+    return Number(currentDayMatch[1]);
+  }
+
+  const advanceMatch = text.match(
+    /(?:non[-\s]?priority(?:\s+members?)?|non[-\s]?members?|guests?|public)[^.]{0,160}?can book(?: up to)?\s*(\d{1,2})\s*(day|days|week|weeks)/i
+  );
+  if (advanceMatch) {
+    const value = Number(advanceMatch[1]);
+    const unit = advanceMatch[2].toLowerCase();
+    return unit.startsWith("week") ? Math.max(0, value * 7 - 1) : value;
+  }
+
+  return null;
+}
+
 function parseClubSparkResponse(data: ClubSparkResponse, courtPrefix: string, dateISO: string): Slot[] {
   const slots: Slot[] = [];
   const escapedPrefix = courtPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -448,8 +509,12 @@ function parseClubSparkResponse(data: ClubSparkResponse, courtPrefix: string, da
 
     for (const day of (resource.Days ?? [])) {
       for (const session of (day.Sessions ?? [])) {
-        // Category 0 = open/available session
+        // ClubSpark still returns some guest-greyed sessions as Category 0,
+        // so also respect role restrictions and zero-capacity sessions.
         if (session.Category !== 0) continue;
+        if ((session.Capacity ?? 1) <= 0) continue;
+        if (Array.isArray(session.Restrictions) && session.Restrictions.length > 0) continue;
+
         const interval = session.Interval;
         if (!interval || interval <= 0) continue;
 
@@ -482,6 +547,13 @@ async function scrapeClubSparkVenue(venue: VenueConfig, dateISO: string): Promis
   date: string;
   slots: Slot[];
 }> {
+  const guestAdvanceBookingDays = await getClubSparkGuestAdvanceBookingDays(venue);
+  const daysAhead = daysBetweenISO(getTodayISOInLondon(), dateISO);
+
+  if (guestAdvanceBookingDays !== null && daysAhead > guestAdvanceBookingDays) {
+    return { venue: venue.id, date: dateISO, slots: [] };
+  }
+
   const apiUrl = buildClubSparkApiUrl(venue, dateISO);
 
   const res = await fetch(apiUrl, {
@@ -728,6 +800,14 @@ function addDaysToISO(dateISO: string, days: number): string {
   const [year, month, day] = dateISO.split("-").map(Number);
   const d = new Date(Date.UTC(year, month - 1, day + days));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+function daysBetweenISO(startISO: string, endISO: string): number {
+  const [startYear, startMonth, startDay] = startISO.split("-").map(Number);
+  const [endYear, endMonth, endDay] = endISO.split("-").map(Number);
+  const start = Date.UTC(startYear, startMonth - 1, startDay);
+  const end = Date.UTC(endYear, endMonth - 1, endDay);
+  return Math.round((end - start) / 86400000);
 }
 
 function formatDayLabelFromISO(dateISO: string): string {
