@@ -455,7 +455,7 @@ const COURTS: Court[] = [
   { id: "finsbury_park", label: "Finsbury Park", indoors: false, floodlights: true, travelDistance: 55, travelDifficulty: "Hard", travelPrice: 3.6, free: false, courtQuality: "TBC", towerHamlets: false },
   { id: "geraldine_mary_harmsworth", label: "Geraldine Mary Harmsworth", indoors: false, floodlights: true, travelDistance: 40, travelDifficulty: "Easy", travelPrice: 3.1, free: false, courtQuality: "TBC", towerHamlets: false },
   { id: "gladstone_park", label: "Gladstone Park", indoors: false, floodlights: true, travelDistance: 55, travelDifficulty: "Easy", travelPrice: 3.9, free: true, courtQuality: "TBC", towerHamlets: false },
-  { id: "golders_hill_park", label: "Golders Hill Park", indoors: false, floodlights: false, travelDistance: 60, travelDifficulty: "Easy", travelPrice: 3.9, free: false, courtQuality: "TBC", towerHamlets: false },
+  //{ id: "golders_hill_park", label: "Golders Hill Park", indoors: false, floodlights: false, travelDistance: 60, travelDifficulty: "Easy", travelPrice: 3.9, free: false, courtQuality: "TBC", towerHamlets: false },
   { id: "goodmayes_park", label: "Goodmayes Park", indoors: false, floodlights: false, travelDistance: 60, travelDifficulty: "Easy", travelPrice: 3.2, free: true, courtQuality: "TBC", towerHamlets: false },
   { id: "gooseley_playing_fields", label: "Gooseley Playing Fields", indoors: false, floodlights: false, travelDistance: 55, travelDifficulty: "Hard", travelPrice: 2.5, free: false, courtQuality: "TBC", towerHamlets: false },
   { id: "hackney_downs_park", label: "Hackney Downs Park", indoors: false, floodlights: true, travelDistance: 50, travelDifficulty: "Easy", travelPrice: 2.3, free: false, courtQuality: "TBC", towerHamlets: false },
