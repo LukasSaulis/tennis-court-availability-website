@@ -172,7 +172,7 @@ export default {
     }
 
     if (url.pathname === "/api/debug-scrape") {
-      const venueId = url.searchParams.get("venue")?.trim().toLowerCase() ?? "";
+      const venueId = normalizeVenueId(url.searchParams.get("venue") ?? "");
       const dateISO = url.searchParams.get("date") ?? getTodayISOInLondon();
       const venue = VENUES[venueId];
 
@@ -220,7 +220,7 @@ export default {
 
         const validVenues = venueParam
           .split(",")
-          .map((v) => v.trim().toLowerCase())
+          .map((v) => normalizeVenueId(v))
           .filter(Boolean)
           .map((id) => VENUES[id])
           .filter((v): v is VenueConfig => Boolean(v));
@@ -284,7 +284,7 @@ export default {
 
         const validVenues = venueParam
           .split(",")
-          .map((v) => v.trim().toLowerCase())
+          .map((v) => normalizeVenueId(v))
           .filter(Boolean)
           .map((id) => VENUES[id])
           .filter((v): v is VenueConfig => Boolean(v));
@@ -382,6 +382,10 @@ export default {
     return new Response("Not found", { status: 404 });
   },
 };
+
+function normalizeVenueId(raw: string): string {
+  return raw.trim().toLowerCase().replace(/['’]/g, "");
+}
 
 function detectScraperType(venue: VenueConfig): "tower_hamlets" | "clubspark_lta" | "clubspark_newham" | "unsupported" {
   if (venue.towerHamlets) return "tower_hamlets";
