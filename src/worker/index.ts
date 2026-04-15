@@ -574,11 +574,13 @@ function buildClubSparkApiUrl(venue: VenueConfig, dateISO: string): string {
     return `https://clubspark.lta.org.uk/v0/VenueBooking/${ltaMatch[1]}/GetVenueSessions?startDate=${dateISO}&endDate=${dateISO}`;
   }
 
-  // https://canning.newhamparkstennis.org.uk/... → subdomain = canning
+  // Newham sites use a host-derived booking key
   const newhamMatch = path.match(/https?:\/\/([^.]+)\.newhamparkstennis\.org\.uk\//);
   if (newhamMatch) {
     const sub = newhamMatch[1];
-    return `https://${sub}.newhamparkstennis.org.uk/v0/VenueBooking/${sub}/GetVenueSessions?startDate=${dateISO}&endDate=${dateISO}`;
+    const host = `${sub}.newhamparkstennis.org.uk`;
+    const bookingKey = host.replace(/\./g, "_");
+    return `https://${host}/v0/VenueBooking/${bookingKey}/GetVenueSessions?startDate=${dateISO}&endDate=${dateISO}`;
   }
 
   throw new Error(`Cannot build ClubSpark API URL for venue ${venue.id}`);
