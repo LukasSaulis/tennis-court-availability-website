@@ -454,25 +454,9 @@ function parseBetterMarkdownSlots(markdown: string): Slot[] {
 
   let pendingTime: string | null = null;
 
-  for (const line of lines) {
-    // Only match standalone time rows (not times embedded in URLs like /slot/07:00-08:00/...)
-    const timeMatch = line.match(/^\**\s*(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})\s*\**$/);
-    if (timeMatch) {
-      pendingTime = timeMatch[1];
-      continue;
-    }
-
-    const spacesMatch = line.match(/^(\d+)\s+spaces?\s+available$/i);
-    if (!spacesMatch || pendingTime === null) {
-      continue;
-    }
-
-    const time = pendingTime;
-    const spaces = Number(spacesMatch[1]);
-    pendingTime = null;
-
+  const pushFromSpaces = (time: string, spaces: number): void => {
     if (!Number.isFinite(spaces) || spaces < 0) {
-      continue;
+      return;
     }
 
     if (spaces === 0) {
@@ -482,7 +466,7 @@ function parseBetterMarkdownSlots(markdown: string): Slot[] {
         status: "booked",
         price: null,
       });
-      continue;
+      return;
     }
 
     for (let i = 1; i <= spaces; i++) {
@@ -493,6 +477,42 @@ function parseBetterMarkdownSlots(markdown: string): Slot[] {
         price: null,
       });
     }
+  };
+
+  for (const line of lines) {
+    // Only match standalone time rows (not times embedded in URLs like /slot/07:00-08:00/...)
+    const timeMatch = line.match(/^\**\s*(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})\s*\**$/);
+    if (timeMatch) {
+      // If we encounter a new time while another is still pending, keep the old one as unavailable.
+      if (pendingTime !== null) {
+        pushFromSpaces(pendingTime, 0);
+      }
+      pendingTime = timeMatch[1];
+      continue;
+    }
+
+    if (pendingTime === null) {
+      continue;
+    }
+
+    const spacesMatch = line.match(/^(\d+)\s+spaces?\s+available$/i);
+    if (spacesMatch) {
+      pushFromSpaces(pendingTime, Number(spacesMatch[1]));
+      pendingTime = null;
+      continue;
+    }
+
+    // Some Better pages use non-numeric wording for zero availability.
+    if (/^fully booked$/i.test(line) || /^no spaces? available$/i.test(line)) {
+      pushFromSpaces(pendingTime, 0);
+      pendingTime = null;
+      continue;
+    }
+  }
+
+  // Keep trailing unmatched time rows visible as unavailable.
+  if (pendingTime !== null) {
+    pushFromSpaces(pendingTime, 0);
   }
 
   return slots.sort((a, b) => {
