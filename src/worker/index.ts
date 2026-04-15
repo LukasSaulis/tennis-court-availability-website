@@ -393,7 +393,7 @@ function normalizeVenueId(raw: string): string {
 function detectScraperType(venue: VenueConfig): "tower_hamlets" | "clubspark_lta" | "clubspark_newham" | "better_bookings" | "unsupported" {
   if (venue.towerHamlets) return "tower_hamlets";
   const path = venue.path;
-  if (path.includes("bookings.better.org.uk")) return "better_bookings";
+  if (path.includes("bookings.better.org.uk") || path.includes("bookings.flow.onl")) return "better_bookings";
   if (path.includes("clubspark.lta.org.uk")) return "clubspark_lta";
   if (path.includes("newhamparkstennis.org.uk")) return "clubspark_newham";
   return "unsupported";
