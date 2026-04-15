@@ -577,53 +577,7 @@ const defaultSelectedTowerHamlets = ["Yes"];
 const SCRAPEABLE_VENUE_IDS = COURTS.map((court) => court.id);
 
 function getDefaultMatchingVenueIds() {
-  return COURTS.filter((court) => {
-    const indoorsValue: IndoorsOption = court.indoors ? "Yes" : "No";
-    const indoorsMatches = defaultSelectedIndoors.length === 0 || defaultSelectedIndoors.includes(indoorsValue);
-
-    const floodlightsValue: FloodlightsOption = court.floodlights ? "Yes" : "No";
-    const floodlightsMatches =
-      defaultSelectedFloodlights.length === 0 || defaultSelectedFloodlights.includes(floodlightsValue);
-
-    const travelDistanceMatches =
-      defaultSelectedTravelDistances.length === 0 ||
-      defaultSelectedTravelDistances.length === travelDistanceOptions.length ||
-      defaultSelectedTravelDistances.some((bucket) =>
-        matchesTravelDistance(bucket as TravelDistanceBucket, court.travelDistance)
-      );
-
-    const travelDifficultyMatches =
-      defaultSelectedTravelDifficulties.length === 0 ||
-      defaultSelectedTravelDifficulties.includes(court.travelDifficulty);
-
-    const travelPriceMatches =
-      defaultSelectedTravelPrices.length === 0 ||
-      defaultSelectedTravelPrices.length === travelPriceOptions.length ||
-      defaultSelectedTravelPrices.some((bucket) => matchesTravelPrice(bucket as TravelPriceBucket, court.travelPrice));
-
-    const freeValue: FreeOption = court.free ? "Yes" : "No";
-    const freeMatches = defaultSelectedFree.length === 0 || defaultSelectedFree.includes(freeValue);
-
-    const courtQualityMatches =
-      defaultSelectedCourtQualities.length === 0 ||
-      defaultSelectedCourtQualities.includes(court.courtQuality);
-
-    const towerHamletsValue: TowerHamletsOption = court.towerHamlets ? "Yes" : "No";
-    const towerHamletsMatches =
-      defaultSelectedTowerHamlets.length === 0 ||
-      defaultSelectedTowerHamlets.includes(towerHamletsValue);
-
-    return (
-      indoorsMatches &&
-      floodlightsMatches &&
-      travelDistanceMatches &&
-      travelDifficultyMatches &&
-      travelPriceMatches &&
-      freeMatches &&
-      courtQualityMatches &&
-      towerHamletsMatches
-    );
-  }).map((court) => court.id);
+  return ["st_johns_park"];
 }
 
 const INITIAL_SELECTED_VENUE_IDS = getDefaultMatchingVenueIds();
@@ -782,17 +736,19 @@ export default function App() {
     setSelectedVenueIds((prev) => {
       const prevFiltered = prev.filter((id) => allIdsSet.has(id));
 
-      const hadAllPreviously =
-        prev.length === 0 ||
-        prev.every((id) => allIdsSet.has(id)) ||
-        prevFiltered.length === prev.length;
-      const currentlyAllSelected = prevFiltered.length === allIds.length;
-
-      if (currentlyAllSelected || prev.length === 0 || hadAllPreviously) {
-        return allIds;
+      if (prevFiltered.length > 0) {
+        return prevFiltered;
       }
 
-      return prevFiltered;
+      if (allIdsSet.has("st_johns_park")) {
+        return ["st_johns_park"];
+      }
+
+      if (allIds.length === 0) {
+        return [];
+      }
+
+      return [allIds[0]];
     });
   }, [venueOptions]);
 
