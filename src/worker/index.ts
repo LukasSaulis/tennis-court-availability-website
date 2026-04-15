@@ -50,7 +50,11 @@ const SCRAPE_CONCURRENCY = 1;
 const SCRAPE_RETRIES = 2;
 const LONDON_TIME_ZONE = "Europe/London";
 const BETTER_RENDER_PROXY_PREFIX = "https://r.jina.ai/http://";
+const BETTER_SLOTS_CACHE_TTL_MS = 2 * 60 * 1000;
+const BETTER_FETCH_RETRIES = 3;
+const BETTER_BASE_RETRY_DELAY_MS = 800;
 const CLUBSPARK_GUEST_BOOKING_WINDOW_CACHE = new Map<string, number | null>();
+const BETTER_SLOTS_CACHE = new Map<string, { expiresAt: number; slots: Slot[] }>();
 const CLUBSPARK_GUEST_BOOKING_WINDOW_OVERRIDES: Record<string, number> = {
   oliver_tambo_recreation_ground: 3,
   parliament_hill_fields: 1,
@@ -399,6 +403,48 @@ function buildBetterRenderedUrl(venueUrl: string): string {
   return `${BETTER_RENDER_PROXY_PREFIX}${venueUrl.replace(/^https?:\/\//i, "")}`;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchBetterRenderedMarkdown(renderedUrl: string): Promise<string> {
+  let lastStatus: number | null = null;
+  let lastBody = "";
+
+  for (let attempt = 0; attempt <= BETTER_FETCH_RETRIES; attempt++) {
+    const res = await fetch(renderedUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "text/plain,text/markdown,text/html;q=0.8,*/*;q=0.5",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    });
+
+    lastStatus = res.status;
+    const body = await res.text();
+    lastBody = body;
+
+    if (res.ok) {
+      return body;
+    }
+
+    if (attempt === BETTER_FETCH_RETRIES) {
+      break;
+    }
+
+    const retryAfterHeader = res.headers.get("Retry-After");
+    const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
+    const retryDelay = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+      ? Math.floor(retryAfterSeconds * 1000)
+      : BETTER_BASE_RETRY_DELAY_MS * (attempt + 1);
+
+    await sleep(retryDelay);
+  }
+
+  throw new Error(`Better rendered fetch failed: HTTP ${lastStatus ?? "unknown"}, body=${lastBody.slice(0, 200)}`);
+}
+
 function parseBetterMarkdownSlots(markdown: string): Slot[] {
   const slots: Slot[] = [];
   const lines = markdown
@@ -670,30 +716,37 @@ async function scrapeBetterVenue(venue: VenueConfig, dateISO: string): Promise<{
   date: string;
   slots: Slot[];
 }> {
+  const cacheKey = `${venue.id}|${dateISO}`;
+  const cached = BETTER_SLOTS_CACHE.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { venue: venue.id, date: dateISO, slots: cached.slots };
+  }
+
   const venueUrl = buildVenueUrl(venue, dateISO);
   const renderedUrl = buildBetterRenderedUrl(venueUrl);
 
-  const res = await fetch(renderedUrl, {
-    headers: {
-      "User-Agent": "Mozilla/5.0",
-      Accept: "text/plain,text/markdown,text/html;q=0.8,*/*;q=0.5",
-      "Cache-Control": "no-cache",
-      Pragma: "no-cache",
-    },
-  });
+  try {
+    const markdown = await fetchBetterRenderedMarkdown(renderedUrl);
+    const slots = normalizeSlotsForVenue(venue, parseBetterMarkdownSlots(markdown));
 
-  if (!res.ok) {
-    throw new Error(`Better rendered fetch failed for ${venue.id} on ${dateISO}: HTTP ${res.status}`);
+    if (slots.length === 0) {
+      throw new Error(`No Better slot rows parsed for ${venue.id} on ${dateISO}`);
+    }
+
+    BETTER_SLOTS_CACHE.set(cacheKey, {
+      expiresAt: Date.now() + BETTER_SLOTS_CACHE_TTL_MS,
+      slots,
+    });
+
+    return { venue: venue.id, date: dateISO, slots };
+  } catch (error) {
+    if (cached) {
+      console.warn(`Using stale Better cache for ${venue.id} on ${dateISO}:`, error);
+      return { venue: venue.id, date: dateISO, slots: cached.slots };
+    }
+
+    throw error;
   }
-
-  const markdown = await res.text();
-  const slots = normalizeSlotsForVenue(venue, parseBetterMarkdownSlots(markdown));
-
-  if (slots.length === 0) {
-    throw new Error(`No Better slot rows parsed for ${venue.id} on ${dateISO}`);
-  }
-
-  return { venue: venue.id, date: dateISO, slots };
 }
 
 async function scrapeVenueForDate(venue: VenueConfig, dateISO: string): Promise<{
