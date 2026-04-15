@@ -49,6 +49,7 @@ type VenueConfig = {
 const SCRAPE_CONCURRENCY = 1;
 const SCRAPE_RETRIES = 2;
 const LONDON_TIME_ZONE = "Europe/London";
+const BETTER_RENDER_PROXY_PREFIX = "https://r.jina.ai/http://";
 const CLUBSPARK_GUEST_BOOKING_WINDOW_CACHE = new Map<string, number | null>();
 const CLUBSPARK_GUEST_BOOKING_WINDOW_OVERRIDES: Record<string, number> = {
   oliver_tambo_recreation_ground: 3,
@@ -387,12 +388,74 @@ function normalizeVenueId(raw: string): string {
   return raw.trim().toLowerCase().replace(/['’]/g, "");
 }
 
-function detectScraperType(venue: VenueConfig): "tower_hamlets" | "clubspark_lta" | "clubspark_newham" | "unsupported" {
+function detectScraperType(venue: VenueConfig): "tower_hamlets" | "clubspark_lta" | "clubspark_newham" | "better_bookings" | "unsupported" {
   if (venue.towerHamlets) return "tower_hamlets";
   const path = venue.path;
+  if (path.includes("bookings.better.org.uk")) return "better_bookings";
   if (path.includes("clubspark.lta.org.uk")) return "clubspark_lta";
   if (path.includes("newhamparkstennis.org.uk")) return "clubspark_newham";
   return "unsupported";
+}
+
+function buildBetterRenderedUrl(venueUrl: string): string {
+  return `${BETTER_RENDER_PROXY_PREFIX}${venueUrl.replace(/^https?:\/\//i, "")}`;
+}
+
+function parseBetterMarkdownSlots(markdown: string): Slot[] {
+  const slots: Slot[] = [];
+  const lines = markdown
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  let pendingTime: string | null = null;
+
+  for (const line of lines) {
+    // Only match standalone time rows (not times embedded in URLs like /slot/07:00-08:00/...)
+    const timeMatch = line.match(/^\**\s*(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})\s*\**$/);
+    if (timeMatch) {
+      pendingTime = timeMatch[1];
+      continue;
+    }
+
+    const spacesMatch = line.match(/^(\d+)\s+spaces?\s+available$/i);
+    if (!spacesMatch || pendingTime === null) {
+      continue;
+    }
+
+    const time = pendingTime;
+    const spaces = Number(spacesMatch[1]);
+    pendingTime = null;
+
+    if (!Number.isFinite(spaces) || spaces < 0) {
+      continue;
+    }
+
+    if (spaces === 0) {
+      slots.push({
+        time,
+        court: "Space 1",
+        status: "booked",
+        price: null,
+      });
+      continue;
+    }
+
+    for (let i = 1; i <= spaces; i++) {
+      slots.push({
+        time,
+        court: `Space ${i}`,
+        status: "available",
+        price: null,
+      });
+    }
+  }
+
+  return slots.sort((a, b) => {
+    const t = compareHHMM(a.time, b.time);
+    if (t !== 0) return t;
+    return a.court.localeCompare(b.court);
+  });
 }
 
 function minutesToTime(minutes: number): string {
@@ -604,6 +667,37 @@ async function scrapeClubSparkVenue(venue: VenueConfig, dateISO: string): Promis
   return { venue: venue.id, date: dateISO, slots };
 }
 
+async function scrapeBetterVenue(venue: VenueConfig, dateISO: string): Promise<{
+  venue: string;
+  date: string;
+  slots: Slot[];
+}> {
+  const venueUrl = buildVenueUrl(venue, dateISO);
+  const renderedUrl = buildBetterRenderedUrl(venueUrl);
+
+  const res = await fetch(renderedUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      Accept: "text/plain,text/markdown,text/html;q=0.8,*/*;q=0.5",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Better rendered fetch failed for ${venue.id} on ${dateISO}: HTTP ${res.status}`);
+  }
+
+  const markdown = await res.text();
+  const slots = normalizeSlotsForVenue(venue, parseBetterMarkdownSlots(markdown));
+
+  if (slots.length === 0) {
+    throw new Error(`No Better slot rows parsed for ${venue.id} on ${dateISO}`);
+  }
+
+  return { venue: venue.id, date: dateISO, slots };
+}
+
 async function scrapeVenueForDate(venue: VenueConfig, dateISO: string): Promise<{
   venue: string;
   date: string;
@@ -613,6 +707,10 @@ async function scrapeVenueForDate(venue: VenueConfig, dateISO: string): Promise<
 
   if (scraperType === "clubspark_lta" || scraperType === "clubspark_newham") {
     return await scrapeClubSparkVenue(venue, dateISO);
+  }
+
+  if (scraperType === "better_bookings") {
+    return await scrapeBetterVenue(venue, dateISO);
   }
 
   if (scraperType === "unsupported") {
