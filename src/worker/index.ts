@@ -113,7 +113,7 @@ const VENUES: Record<string, VenueConfig> = {
   islington_tennis_centre_indoors: { id: "islington_tennis_centre_indoors", path: "https://bookings.better.org.uk/location/islington-tennis-centre/tennis-court-indoor/2026-03-31/by-time", towerHamlets: false, courtNum: 6, courtPrefix: "-", courtTime: "1h" },
   islington_tennis_centre_outdoors: { id: "islington_tennis_centre_outdoors", path: "https://bookings.better.org.uk/location/islington-tennis-centre/tennis-court-outdoor/2026-03-31/by-time", towerHamlets: false, courtNum: 2, courtPrefix: "-", courtTime: "1h" },
   joe_white_gardens: { id: "joe_white_gardens", path: "https://clubspark.lta.org.uk/AskeGardens/Booking/BookByDate#?date=2026-03-31&role=guest", towerHamlets: false, courtNum: 1, courtPrefix: "Court", courtTime: "1h" },
-  john_orwell_sports_centre: { id: "john_orwell_sports_centre", path: "https://towerhamletscouncil.gladstonego.cloud/book/calendar/JACT000030?activityDate=2026-03-31T06:0:00.000Z", towerHamlets: false, courtNum: 1, courtPrefix: "-", courtTime: "1h" },
+  john_orwell_sports_centre: { id: "john_orwell_sports_centre", path: "https://towerhamletscouncil.gladstonego.cloud/book/calendar/JACT000030?activityDate=2026-03-31T00:00:00.000Z&previousActivityDate=2026-03-31T00:00:00.000Z", towerHamlets: false, courtNum: 1, courtPrefix: "-", courtTime: "1h" },
   kennington_park: { id: "kennington_park", path: "https://clubspark.lta.org.uk/KenningtonPark/Booking/BookByDate#?date=2026-03-31&role=guest", towerHamlets: false, courtNum: 5, courtPrefix: "Court", courtTime: "1h" },
   kensington_memorial_park: { id: "kensington_memorial_park", path: "https://clubspark.lta.org.uk/KensingtonMemorialPark/Booking/BookByDate#?date=2026-03-31&role=guest", towerHamlets: false, courtNum: 3, courtPrefix: "Court", courtTime: "1h" },
   kidbrooke_green: { id: "kidbrooke_green", path: "https://clubspark.lta.org.uk/KidbrookeGreen/Booking/BookByDate#?date=2026-03-31&role=guest", towerHamlets: false, courtNum: 2, courtPrefix: "Court", courtTime: "1h" },
@@ -390,10 +390,11 @@ function normalizeVenueId(raw: string): string {
   return raw.trim().toLowerCase().replace(/['’]/g, "");
 }
 
-function detectScraperType(venue: VenueConfig): "tower_hamlets" | "clubspark_lta" | "clubspark_newham" | "better_bookings" | "unsupported" {
+function detectScraperType(venue: VenueConfig): "tower_hamlets" | "clubspark_lta" | "clubspark_newham" | "better_bookings" | "gladstone_calendar" | "unsupported" {
   if (venue.towerHamlets) return "tower_hamlets";
   const path = venue.path;
   if (path.includes("bookings.better.org.uk") || path.includes("bookings.flow.onl")) return "better_bookings";
+  if (path.includes("gladstonego.cloud/book/calendar")) return "gladstone_calendar";
   if (path.includes("clubspark.lta.org.uk")) return "clubspark_lta";
   if (path.includes("newhamparkstennis.org.uk")) return "clubspark_newham";
   return "unsupported";
@@ -771,6 +772,23 @@ async function scrapeBetterVenue(venue: VenueConfig, dateISO: string): Promise<{
   }
 }
 
+async function scrapeGladstoneCalendarVenue(venue: VenueConfig, dateISO: string): Promise<{
+  venue: string;
+  date: string;
+  slots: Slot[];
+}> {
+  const venueUrl = buildVenueUrl(venue, dateISO);
+  const renderedUrl = buildBetterRenderedUrl(venueUrl);
+  const markdown = await fetchBetterRenderedMarkdown(renderedUrl);
+  const slots = normalizeSlotsForVenue(venue, parseGladstoneMarkdownSlots(markdown));
+
+  if (slots.length === 0) {
+    throw new Error(`No Gladstone slot rows parsed for ${venue.id} on ${dateISO}`);
+  }
+
+  return { venue: venue.id, date: dateISO, slots };
+}
+
 async function scrapeVenueForDate(venue: VenueConfig, dateISO: string): Promise<{
   venue: string;
   date: string;
@@ -784,6 +802,10 @@ async function scrapeVenueForDate(venue: VenueConfig, dateISO: string): Promise<
 
   if (scraperType === "better_bookings") {
     return await scrapeBetterVenue(venue, dateISO);
+  }
+
+  if (scraperType === "gladstone_calendar") {
+    return await scrapeGladstoneCalendarVenue(venue, dateISO);
   }
 
   if (scraperType === "unsupported") {
@@ -1085,5 +1107,70 @@ function json(body: unknown, status = 200, extraHeaders: Record<string, string> 
       "Content-Type": "application/json; charset=utf-8",
       ...extraHeaders,
     },
+  });
+}
+
+function parseGladstoneMarkdownSlots(markdown: string): Slot[] {
+  const slots: Slot[] = [];
+  const lines = markdown
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  let currentTime: string | null = null;
+  let currentCourt: string | null = null;
+  let currentCardUnavailable = false;
+  let currentSectionUnavailable = false;
+
+  const flushCard = (): void => {
+    if (!currentTime || !currentCourt) {
+      return;
+    }
+
+    slots.push({
+      time: currentTime,
+      court: currentCourt,
+      status: currentCardUnavailable ? "booked" : "available",
+      price: null,
+    });
+
+    currentCourt = null;
+    currentCardUnavailable = false;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    const timeHeader = line.match(/^##\s*(\d{2}:\d{2})$/);
+    if (timeHeader) {
+      flushCard();
+      // Gladstone calendar sections appear one hour behind the actual slot window.
+      // Example: section "## 20:00" corresponds to bookable window "21:00 - 22:00".
+      currentTime = minutesToTime(timeToMinutes(timeHeader[1]) + 60);
+      currentCardUnavailable = currentSectionUnavailable;
+      currentSectionUnavailable = false;
+      continue;
+    }
+
+    const courtHeader = line.match(/###\s+(.+)$/);
+    if (courtHeader) {
+      flushCard();
+      currentCourt = courtHeader[1].trim();
+      currentCardUnavailable = currentSectionUnavailable;
+      continue;
+    }
+
+    if (/^this slot is unavailable$/i.test(line)) {
+      currentSectionUnavailable = true;
+      currentCardUnavailable = true;
+    }
+  }
+
+  flushCard();
+
+  return slots.sort((a, b) => {
+    const t = compareHHMM(a.time, b.time);
+    if (t !== 0) return t;
+    return a.court.localeCompare(b.court);
   });
 }
