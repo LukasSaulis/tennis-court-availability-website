@@ -575,7 +575,7 @@ const defaultSelectedTowerHamlets = ["Yes"];
 const SCRAPEABLE_VENUE_IDS = COURTS.map((court) => court.id);
 
 function getDefaultMatchingVenueIds() {
-  return ["st_johns_park"];
+  return COURTS.filter((c) => c.towerHamlets).map((c) => c.id);
 }
 
 const INITIAL_SELECTED_VENUE_IDS = getDefaultMatchingVenueIds();
@@ -738,15 +738,11 @@ export default function App() {
         return prevFiltered;
       }
 
-      if (allIdsSet.has("st_johns_park")) {
-        return ["st_johns_park"];
-      }
-
       if (allIds.length === 0) {
         return [];
       }
 
-      return [allIds[0]];
+      return allIds;
     });
   }, [venueOptions]);
 
