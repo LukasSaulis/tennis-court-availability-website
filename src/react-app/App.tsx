@@ -513,7 +513,7 @@ const COURTS: Court[] = [
   { id: "vale_farm", label: "Vale Farm", indoors: false, floodlights: false, travelDistance: 80, travelDifficulty: "Hard", travelPrice: 6.55, free: true, courtQuality: "TBC", towerHamlets: false },
   { id: "valentines_park", label: "Valentines Park", indoors: false, floodlights: false, travelDistance: 55, travelDifficulty: "Easy", travelPrice: 3.2, free: true, courtQuality: "TBC", towerHamlets: false },
   { id: "vauxhall_park", label: "Vauxhall Park", indoors: false, floodlights: false, travelDistance: 45, travelDifficulty: "Easy", travelPrice: 3.6, free: false, courtQuality: "TBC", towerHamlets: false },
-  { id: "west_ham_park", label: "West Ham Park", indoors: false, floodlights: false, travelDistance: 45, travelDifficulty: "Easy", travelPrice: 2.3, free: false, courtQuality: "TBC", towerHamlets: false },
+  { id: "west_ham_park", label: "West Ham Park", indoors: false, floodlights: false, travelDistance: 45, travelDifficulty: "Easy", travelPrice: 2.3, free: false, courtQuality: "Good", towerHamlets: false },
   { id: "woodcock_park", label: "Woodcock Park", indoors: false, floodlights: false, travelDistance: 80, travelDifficulty: "Hard", travelPrice: 6.55, free: true, courtQuality: "TBC", towerHamlets: false },
 ];
 
