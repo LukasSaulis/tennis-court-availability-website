@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const REFRESH_OPTIONS = [
-  { label: "5m", ms: 300000 },
+  // { label: "5m", ms: 300000 },
   { label: "15m", ms: 900000 },
   { label: "30m", ms: 1800000 },
   { label: "1h", ms: 3600000 },
@@ -513,7 +513,7 @@ const COURTS: Court[] = [
   { id: "vale_farm", label: "Vale Farm", indoors: false, floodlights: false, travelDistance: 80, travelDifficulty: "Hard", travelPrice: 6.55, free: true, courtQuality: "TBC", towerHamlets: false },
   { id: "valentines_park", label: "Valentines Park", indoors: false, floodlights: false, travelDistance: 55, travelDifficulty: "Easy", travelPrice: 3.2, free: true, courtQuality: "TBC", towerHamlets: false },
   { id: "vauxhall_park", label: "Vauxhall Park", indoors: false, floodlights: false, travelDistance: 45, travelDifficulty: "Easy", travelPrice: 3.6, free: false, courtQuality: "TBC", towerHamlets: false },
-  { id: "west_ham_park", label: "West Ham Park", indoors: false, floodlights: false, travelDistance: 45, travelDifficulty: "Easy", travelPrice: 2.3, free: false, courtQuality: "Good", towerHamlets: false },
+  { id: "west_ham_park", label: "West Ham Park", indoors: false, floodlights: false, travelDistance: 45, travelDifficulty: "Easy", travelPrice: 2.3, free: false, courtQuality: "Bad", towerHamlets: false },
   { id: "woodcock_park", label: "Woodcock Park", indoors: false, floodlights: false, travelDistance: 80, travelDifficulty: "Hard", travelPrice: 6.55, free: true, courtQuality: "TBC", towerHamlets: false },
 ];
 
@@ -568,9 +568,9 @@ const defaultSelectedFloodlights = floodlightsOptions.map((o) => o.value);
 const defaultSelectedTravelDistances = travelDistanceOptions.map((o) => o.value);
 const defaultSelectedTravelDifficulties = travelDifficultyOptions.map((o) => o.value);
 const defaultSelectedTravelPrices = travelPriceOptions.map((o) => o.value);
-const defaultSelectedFree = freeOptions.map((o) => o.value);
-const defaultSelectedCourtQualities = courtQualityOptions.map((o) => o.value);
-const defaultSelectedTowerHamlets = ["Yes"];
+const defaultSelectedFree = ["Yes"];
+const defaultSelectedCourtQualities = ["Great", "Good", "TBC"];
+const defaultSelectedTowerHamlets = towerHamletsOptions.map((o) => o.value);
 
 const SCRAPEABLE_VENUE_IDS = COURTS.map((court) => court.id);
 
@@ -601,7 +601,7 @@ export default function App() {
   const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>(INITIAL_SELECTED_VENUE_IDS);
   const [appliedVenueIds, setAppliedVenueIds] = useState<string[]>(INITIAL_SELECTED_VENUE_IDS);
 
-  const [refreshMs, setRefreshMs] = useState<number>(900_000);
+  const [refreshMs, setRefreshMs] = useState<number>(1_800_000);
   const refreshTimerRef = useRef<number | null>(null);
   const hasFetchedInitiallyRef = useRef(false);
 
