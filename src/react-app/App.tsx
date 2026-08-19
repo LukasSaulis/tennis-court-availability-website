@@ -565,8 +565,8 @@ const towerHamletsOptions: Option[] = [
 
 const defaultSelectedIndoors = indoorsOptions.map((o) => o.value);
 const defaultSelectedFloodlights = floodlightsOptions.map((o) => o.value);
-const defaultSelectedTravelDistances = travelDistanceOptions.map((o) => o.value);
-const defaultSelectedTravelDifficulties = travelDifficultyOptions.map((o) => o.value);
+const defaultSelectedTravelDistances = ["< 30m", "30m - 45m", "45m - 1h"];
+const defaultSelectedTravelDifficulties = ["Easy"];
 const defaultSelectedTravelPrices = travelPriceOptions.map((o) => o.value);
 const defaultSelectedFree = ["Yes"];
 const defaultSelectedCourtQualities = ["Great", "Good", "TBC"];
